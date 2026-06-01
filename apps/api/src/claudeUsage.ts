@@ -509,12 +509,23 @@ const spawnCliAndCapture = (binary: string): Promise<string | null> =>
         let usageSentAt = 0;
         let usageSendCount = 0;
 
-        const term = pty.spawn(binary, ["--allowed-tools", ""], {
-          name: "xterm-256color",
-          cols: CLI_PTY_COLS,
-          rows: CLI_PTY_ROWS,
-          env: scrubbedEnv(),
-        });
+        // The usage probe only needs the interactive TUI to render `/usage`.
+        // Without these flags it boots a full Claude Code session per scrape —
+        // launching every configured MCP server and firing SessionStart hooks
+        // as child processes, which stack up into gigabytes of RAM and a load
+        // spike. `--strict-mcp-config` (with no `--mcp-config`) loads zero MCP
+        // servers; `disableAllHooks` skips hooks. `--bare` is unusable here
+        // because it forces non-interactive `--print` mode.
+        const term = pty.spawn(
+          binary,
+          ["--strict-mcp-config", "--settings", '{"disableAllHooks":true}', "--allowed-tools", ""],
+          {
+            name: "xterm-256color",
+            cols: CLI_PTY_COLS,
+            rows: CLI_PTY_ROWS,
+            env: scrubbedEnv(),
+          },
+        );
 
         const finish = (result: string | null) => {
           if (done) return;
@@ -630,10 +641,23 @@ const spawnCliAndCapture = (binary: string): Promise<string | null> =>
       .catch(() => resolve(null));
   });
 
+// Hard cap: at most one usage-scraper CLI may run at a time. The cached-path
+// guard (`refreshInFlight`) does not cover the `/api/claude/usage/cli` route,
+// and a misbehaving/rapid caller could otherwise spawn a fresh 25s scrape every
+// couple seconds, stacking a dozen Claude CLIs concurrently. This guarantees
+// the spawn count stays bounded regardless of how often callers ask.
+let cliSpawnInFlight = false;
+
 const spawnDefaultCliUsage = async (): Promise<string | null> => {
+  if (cliSpawnInFlight) return null;
   const binary = resolveClaudeBinary();
   if (!binary) return null;
-  return spawnCliAndCapture(binary);
+  cliSpawnInFlight = true;
+  try {
+    return await spawnCliAndCapture(binary);
+  } finally {
+    cliSpawnInFlight = false;
+  }
 };
 
 /** Exported for testing — resets the snapshot cache. */
