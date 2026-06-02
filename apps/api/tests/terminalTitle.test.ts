@@ -39,7 +39,16 @@ describe("createTitleScanner", () => {
 
 describe("isMeaningfulConversationTitle", () => {
   it("rejects bare shell/program names and paths", () => {
-    for (const noise of ["", "claude", "zsh", "-zsh", "bash", "node", "/Users/x/dev/proj", "~/dev"]) {
+    for (const noise of [
+      "",
+      "claude",
+      "zsh",
+      "-zsh",
+      "bash",
+      "node",
+      "/Users/x/dev/proj",
+      "~/dev",
+    ]) {
       expect(isMeaningfulConversationTitle(noise)).toBe(false);
     }
   });
@@ -52,7 +61,11 @@ describe("isMeaningfulConversationTitle", () => {
 describe("applyDetectedTitle", () => {
   it("updates when origin is not user and the title is new", () => {
     expect(
-      applyDetectedTitle({ currentName: "Octogent Terminal 1", origin: "generated", title: "Refactor auth flow" }),
+      applyDetectedTitle({
+        currentName: "Octogent Terminal 1",
+        origin: "generated",
+        title: "Refactor auth flow",
+      }),
     ).toEqual({ changed: true, name: "Refactor auth flow", origin: "conversation" });
   });
 
@@ -63,7 +76,11 @@ describe("applyDetectedTitle", () => {
   });
 
   it("ignores noise titles and no-op titles", () => {
-    expect(applyDetectedTitle({ currentName: "x", origin: "prompt", title: "zsh" })).toEqual({ changed: false });
-    expect(applyDetectedTitle({ currentName: "Same", origin: "prompt", title: "Same" })).toEqual({ changed: false });
+    expect(applyDetectedTitle({ currentName: "x", origin: "prompt", title: "zsh" })).toEqual({
+      changed: false,
+    });
+    expect(applyDetectedTitle({ currentName: "Same", origin: "prompt", title: "Same" })).toEqual({
+      changed: false,
+    });
   });
 });

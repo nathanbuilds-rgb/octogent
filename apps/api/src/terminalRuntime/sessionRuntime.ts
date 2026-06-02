@@ -24,6 +24,7 @@ import {
 import { broadcastMessage, getTerminalId, sendMessage } from "./protocol";
 import { createShellEnvironment, ensureNodePtySpawnHelperExecutable } from "./ptyEnvironment";
 import { toErrorMessage } from "./systemClients";
+import { applyDetectedTitle, createTitleScanner } from "./terminalTitle";
 import type {
   DirectSessionListener,
   PersistedTerminal,
@@ -50,6 +51,7 @@ type CreateSessionRuntimeOptions = {
   onStateChange?: (terminalId: string, state: AgentRuntimeState, toolName?: string) => void;
   onSessionStart?: (terminalId: string, details: TerminalSessionStartDetails) => void;
   onSessionEnd?: (terminalId: string, details: TerminalSessionEndDetails) => void;
+  onTitleDetected?: (terminalId: string, title: string) => void;
 };
 
 const ANSI_BEL = String.fromCharCode(0x07);
@@ -73,6 +75,7 @@ export const createSessionRuntime = ({
   onStateChange,
   onSessionStart,
   onSessionEnd,
+  onTitleDetected,
 }: CreateSessionRuntimeOptions) => {
   const DEFAULT_PTY_COLS = 120;
   const DEFAULT_PTY_ROWS = 35;
@@ -586,6 +589,7 @@ export const createSessionRuntime = ({
       session.debugLog = debugLog;
     }
     session.transcriptLog = transcriptLog;
+    session.titleScanner = createTitleScanner();
 
     appendDebugLog(session, `session-start session=${sessionId} tentacle=${tentacleId}`);
     const processId =
@@ -609,6 +613,19 @@ export const createSessionRuntime = ({
 
       appendDebugLog(session, `pty-output session=${sessionId} chunk=${JSON.stringify(chunk)}`);
       appendScrollback(session, chunk);
+      const detectedTitles = session.titleScanner?.(chunk) ?? [];
+      for (const title of detectedTitles) {
+        const record = terminals.get(sessionId);
+        const decision = applyDetectedTitle({
+          currentName: record?.tentacleName ?? "",
+          origin: record?.nameOrigin,
+          title,
+        });
+        if (decision.changed) {
+          broadcastMessage(session, { type: "rename", tentacleName: decision.name });
+          onTitleDetected?.(sessionId, decision.name);
+        }
+      }
       const nextState = session.stateTracker.observeChunk(chunk, Date.now());
       broadcastMessage(session, {
         type: "output",

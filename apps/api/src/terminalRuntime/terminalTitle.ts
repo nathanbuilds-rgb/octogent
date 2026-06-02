@@ -5,10 +5,7 @@ const ESC = "\x1b";
 // OSC title set: ESC ] (0|1|2) ; <title> (BEL | ESC \)
 // Build the regex dynamically to avoid literal control characters in the regex literal,
 // which Biome's noControlCharactersInRegex rule disallows.
-const OSC_TITLE_RE = new RegExp(
-  `${ESC}\\][012];([^${BEL}${ESC}]*)(?:${BEL}|${ESC}\\\\)`,
-  "g",
-);
+const OSC_TITLE_RE = new RegExp(`${ESC}\\][012];([^${BEL}${ESC}]*)(?:${BEL}|${ESC}\\\\)`, "g");
 const MAX_CARRY = 4096; // cap the cross-chunk buffer so a runaway stream can't grow unbounded
 
 /**
@@ -23,11 +20,7 @@ export const createTitleScanner = (): ((chunk: string) => string[]) => {
     const titles: string[] = [];
     OSC_TITLE_RE.lastIndex = 0;
     let lastEnd = 0;
-    for (
-      let match = OSC_TITLE_RE.exec(buffer);
-      match !== null;
-      match = OSC_TITLE_RE.exec(buffer)
-    ) {
+    for (let match = OSC_TITLE_RE.exec(buffer); match !== null; match = OSC_TITLE_RE.exec(buffer)) {
       titles.push(match[1] ?? "");
       lastEnd = OSC_TITLE_RE.lastIndex;
     }
@@ -42,17 +35,7 @@ export const createTitleScanner = (): ((chunk: string) => string[]) => {
   };
 };
 
-const NOISE_NAMES = new Set([
-  "",
-  "claude",
-  "zsh",
-  "-zsh",
-  "bash",
-  "-bash",
-  "sh",
-  "fish",
-  "node",
-]);
+const NOISE_NAMES = new Set(["", "claude", "zsh", "-zsh", "bash", "-bash", "sh", "fish", "node"]);
 
 /**
  * Heuristic: is this terminal title a real conversation topic worth adopting as

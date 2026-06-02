@@ -83,6 +83,7 @@ export type TerminalSession = {
   isClosed?: boolean;
   hasSeenProcessing?: boolean;
   lastToolName?: string | undefined;
+  titleScanner?: (chunk: string) => string[];
 };
 
 export type TerminalNameOrigin = "generated" | "user" | "prompt" | "conversation";

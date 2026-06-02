@@ -253,6 +253,22 @@ export const createTerminalRuntime = ({
     onStateChange: broadcastTerminalStateChanged,
     onSessionStart: markTerminalRunning,
     onSessionEnd: markTerminalEnded,
+    onTitleDetected: (terminalId, title) => {
+      const terminal = terminals.get(terminalId);
+      if (!terminal || terminal.nameOrigin === "user") {
+        return;
+      }
+      if (terminal.tentacleName === title) {
+        return;
+      }
+      terminal.tentacleName = title;
+      terminal.nameOrigin = "conversation";
+      persistRegistry();
+      broadcastTerminalEvent({
+        type: "terminal-updated",
+        snapshot: toTerminalSnapshot(terminal),
+      });
+    },
   });
 
   const gitOps = createGitOperations({
