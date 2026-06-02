@@ -19,6 +19,12 @@ describe("parseGeneratedTodos", () => {
     const raw = Array.from({ length: 30 }, (_, i) => `- [ ] task ${i}`).join("\n");
     expect(parseGeneratedTodos(raw)).toHaveLength(20);
   });
+  it("drops empty checkbox lines and bullets with no text", () => {
+    expect(parseGeneratedTodos("- [ ]\n- [x]\n-   \n")).toEqual([]);
+  });
+  it("strips checkboxes even without a following space or with odd chars", () => {
+    expect(parseGeneratedTodos("- [x]task\n- [/] weird\n")).toEqual(["task", "weird"]);
+  });
 });
 
 describe("generateTodosFromDescription", () => {
@@ -39,7 +45,9 @@ describe("generateTodosFromDescription", () => {
     const args: string[] = run.mock.calls[0]?.[1] ?? [];
     expect(args).toContain("-p");
     expect(args).toContain("--strict-mcp-config");
-    expect(args.join(" ")).toContain("disableAllHooks");
+    const settingsIdx = args.indexOf("--settings");
+    expect(settingsIdx).toBeGreaterThan(-1);
+    expect(JSON.parse(args[settingsIdx + 1] ?? "null")).toEqual({ disableAllHooks: true });
   });
   it("returns [] when the run throws (timeout / claude error)", async () => {
     const run = vi.fn().mockRejectedValue(new Error("timeout"));

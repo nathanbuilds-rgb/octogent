@@ -46,10 +46,16 @@ export const parseGeneratedTodos = (raw: string): string[] => {
   const todos: string[] = [];
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
-    const match = trimmed.match(/^(?:[-*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)(.+)$/);
-    if (!match) continue;
-    const text = (match[1] ?? "").trim();
-    if (text.length > 0) todos.push(text);
+    // Require a list marker: "- ", "* ", "1. ", or "1) ".
+    const markerMatch = trimmed.match(/^(?:[-*]|\d+[.)])\s+(.*)$/);
+    if (!markerMatch) continue;
+    // Strip an optional leading checkbox ("[ ]", "[x]", "[X]", "[]" or any single-char box).
+    const text = (markerMatch[1] ?? "")
+      .trim()
+      .replace(/^\[[^\]]?\]\s*/, "")
+      .trim();
+    if (text.length === 0) continue;
+    todos.push(text);
     if (todos.length >= MAX_TODOS) break;
   }
   return todos;
