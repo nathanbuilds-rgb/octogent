@@ -131,6 +131,17 @@ state). Appearance (color/octopus) stays but is de-emphasized.
 - **Result:** A normal deck card with a populated todo progress bar and skills, matching
   the existing cards.
 
+### Entry points (both must open the wizard)
+
+There are two "add tentacle" entry points and **both** must route into the guided wizard:
+1. Deck → "Add Tentacle Manually" (`ActionCards.tsx` → `AddTentacleForm`) — today shows a
+   form; becomes the wizard.
+2. Canvas / agents page → **"New Tentacle"** button (`CanvasPrimaryView.tsx:1119` and
+   `:1342`) → `onCreateTentacle` in `App.tsx:558-566`. **Bug (issue #4):** this handler is a
+   stub that POSTs a hardcoded `{ name: "", description: "" }` to `/api/deck/tentacles`,
+   which 400s — the operator is never prompted for anything. Re-wire this button to open the
+   same wizard instead of the blind empty POST.
+
 ### Data flow
 
 - Generate: wizard → `POST /generate-todos` → `claude -p` → parsed todos → editable list.
