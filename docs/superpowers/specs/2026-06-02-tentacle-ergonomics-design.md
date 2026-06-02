@@ -169,7 +169,30 @@ state). Appearance (color/octopus) stays but is de-emphasized.
 - Part 2's headless-claude isolation flags come from the usage-scraper fix
   (`fix/usage-scraper-resource-storm`). Implementation should base on or merge that work so
   the isolation helper is shared rather than duplicated.
-- Two phases, independently shippable: **Phase 1 = Rename**, **Phase 2 = Guided creation**.
+- Three phases, independently shippable: **Phase 1 = Rename**, **Phase 2 = Guided creation**,
+  **Phase 3 = Resume conversation on re-select** (designed/planned after Phases 1–2).
+
+## Phase 3 — Resume conversation on re-select (intent recorded, design pending)
+
+**Problem:** Stopping a tentacle kills its agent. Re-selecting it currently spawns a fresh
+`claude` and re-injects the tentacle's initial prompt/template (`ensureAgentBootstrapped` in
+`apps/api/src/terminalRuntime/sessionRuntime.ts`), discarding the prior conversation.
+
+**Desired:** Persist each tentacle's Claude conversation/session id; on re-select of a
+stopped agent, resume that conversation instead of bootstrapping a new one.
+
+**Approach (to validate during Phase 3 design):**
+- **Capture** the Claude `session_id` from the `session-start` hook payload octogent
+  already receives (`hookProcessor.ts`) and store it on the `PersistedTerminal` record
+  (e.g. `conversationId`), persisted in the registry.
+- **Resume:** when re-selecting a terminal that has a stored `conversationId` and no live
+  session, bootstrap with `claude --resume <conversationId>` (verify exact flag/behavior in
+  the installed Claude version) and **skip** the initial-prompt/template injection.
+- **Fallback:** when there is no stored `conversationId` (never started), keep the current
+  bootstrap + template behavior.
+- **Open questions for design:** exact resume flag (`--resume <id>` vs `--continue`);
+  interaction with `workspaceMode: worktree`; what happens if the stored conversation is
+  gone/expired (graceful fallback to fresh + template).
 
 ## Open risk
 
