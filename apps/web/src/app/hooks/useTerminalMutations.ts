@@ -61,6 +61,10 @@ export const useTerminalMutations = ({
   // Guards the Esc-then-blur race: cancel sets this true, then clears editing, which
   // unmounts the input and fires onBlur->submit; the submit handler skips that stale blur.
   const cancelTerminalNameSubmitRef = useRef(false);
+  // Guards the Enter-then-blur race: Enter triggers an async PATCH; if the input is still
+  // mounted when focus moves, onBlur fires submitTerminalRename again. This flag ensures
+  // only one submit runs at a time.
+  const isSubmittingRenameRef = useRef(false);
 
   const beginTerminalNameEdit = useCallback(
     (terminalId: string, currentTerminalName: string) => {
@@ -78,6 +82,10 @@ export const useTerminalMutations = ({
         return;
       }
 
+      if (isSubmittingRenameRef.current) {
+        return;
+      }
+
       const trimmedName = terminalNameDraft.trim();
       if (trimmedName.length === 0) {
         setLoadError("Terminal name cannot be empty.");
@@ -89,6 +97,7 @@ export const useTerminalMutations = ({
         return;
       }
 
+      isSubmittingRenameRef.current = true;
       try {
         setLoadError(null);
         const encodedTerminalId = encodeURIComponent(terminalId);
@@ -110,6 +119,8 @@ export const useTerminalMutations = ({
         setEditingTerminalId(null);
       } catch {
         setLoadError("Unable to rename terminal.");
+      } finally {
+        isSubmittingRenameRef.current = false;
       }
     },
     [readColumns, setColumns, setLoadError, terminalNameDraft],

@@ -26,7 +26,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
 const isTerminalNameOrigin = (value: unknown): value is TerminalNameOrigin =>
-  value === "generated" || value === "user" || value === "prompt";
+  value === "generated" || value === "user" || value === "prompt" || value === "conversation";
 
 const isTerminalLifecycleState = (value: unknown): value is TerminalLifecycleState =>
   value === "registered" ||
@@ -218,7 +218,7 @@ const migrateV2ToV3 = (
   return terminals;
 };
 
-const parseV3Terminals = (
+export const parseV3Terminals = (
   record: Record<string, unknown>,
   registryPath: string,
 ): Map<string, PersistedTerminal> => {
