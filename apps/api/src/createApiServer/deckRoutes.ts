@@ -95,6 +95,10 @@ export const handleDeckTentaclesRoute: ApiRouteHandler = async (
       body && Array.isArray(body.suggestedSkills)
         ? body.suggestedSkills.filter((skill): skill is string => typeof skill === "string")
         : [];
+    const todos =
+      body && Array.isArray(body.todos)
+        ? body.todos.filter((todo): todo is string => typeof todo === "string")
+        : [];
 
     const rawOctopus =
       body && typeof body.octopus === "object" && body.octopus !== null
@@ -109,7 +113,7 @@ export const handleDeckTentaclesRoute: ApiRouteHandler = async (
 
     const result = createDeckTentacle(
       workspaceCwd,
-      { name, description, color, octopus, suggestedSkills },
+      { name, description, color, octopus, suggestedSkills, todos },
       projectStateDir,
     );
     if (!result.ok) {
