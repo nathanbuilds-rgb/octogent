@@ -6,7 +6,7 @@ import {
 } from "../terminalRuntime";
 
 const isTerminalNameOrigin = (value: unknown): value is TerminalNameOrigin =>
-  value === "generated" || value === "user" || value === "prompt";
+  value === "generated" || value === "user" || value === "prompt" || value === "conversation";
 
 export const parseTerminalName = (payload: unknown) => {
   if (payload === null || payload === undefined) {
@@ -156,7 +156,7 @@ export const parseTerminalNameOrigin = (payload: unknown) => {
   if (!isTerminalNameOrigin(rawNameOrigin)) {
     return {
       nameOrigin: undefined as TerminalNameOrigin | undefined,
-      error: "Terminal name origin must be 'generated', 'user', or 'prompt'.",
+      error: "Terminal name origin must be 'generated', 'user', 'prompt', or 'conversation'.",
     };
   }
 

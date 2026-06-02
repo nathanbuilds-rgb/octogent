@@ -85,7 +85,7 @@ export type TerminalSession = {
   lastToolName?: string | undefined;
 };
 
-export type TerminalNameOrigin = "generated" | "user" | "prompt";
+export type TerminalNameOrigin = "generated" | "user" | "prompt" | "conversation";
 
 export {
   type ChannelMessage,
