@@ -2,10 +2,6 @@ import type { TerminalNameOrigin } from "./types";
 
 const BEL = "\x07";
 const ESC = "\x1b";
-// OSC title set: ESC ] (0|1|2) ; <title> (BEL | ESC \)
-// Build the regex dynamically to avoid literal control characters in the regex literal,
-// which Biome's noControlCharactersInRegex rule disallows.
-const OSC_TITLE_RE = new RegExp(`${ESC}\\][012];([^${BEL}${ESC}]*)(?:${BEL}|${ESC}\\\\)`, "g");
 const MAX_CARRY = 4096; // cap the cross-chunk buffer so a runaway stream can't grow unbounded
 
 /**
@@ -14,23 +10,22 @@ const MAX_CARRY = 4096; // cap the cross-chunk buffer so a runaway stream can't 
  * tail. Never throws.
  */
 export const createTitleScanner = (): ((chunk: string) => string[]) => {
+  // Per-instance regex: the `g` flag makes exec() stateful via lastIndex, so each
+  // scanner must own its own RegExp to avoid cross-instance state corruption.
+  const titleRe = new RegExp(`${ESC}\\][012];([^${BEL}${ESC}]*)(?:${BEL}|${ESC}\\\\)`, "g");
   let carry = "";
   return (chunk: string): string[] => {
     const buffer = carry + chunk;
     const titles: string[] = [];
-    OSC_TITLE_RE.lastIndex = 0;
+    titleRe.lastIndex = 0;
     let lastEnd = 0;
-    for (let match = OSC_TITLE_RE.exec(buffer); match !== null; match = OSC_TITLE_RE.exec(buffer)) {
+    for (let match = titleRe.exec(buffer); match !== null; match = titleRe.exec(buffer)) {
       titles.push(match[1] ?? "");
-      lastEnd = OSC_TITLE_RE.lastIndex;
+      lastEnd = titleRe.lastIndex;
     }
     // Keep any trailing partial title-open sequence for the next chunk.
     const lastOpen = buffer.lastIndexOf(`${ESC}]`);
-    if (lastOpen >= lastEnd) {
-      carry = buffer.slice(lastOpen).slice(0, MAX_CARRY);
-    } else {
-      carry = "";
-    }
+    carry = lastOpen >= lastEnd ? buffer.slice(lastOpen).slice(0, MAX_CARRY) : "";
     return titles;
   };
 };

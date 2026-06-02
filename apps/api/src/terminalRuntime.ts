@@ -30,6 +30,7 @@ import {
 } from "./terminalRuntime/registry";
 import { createSessionRuntime } from "./terminalRuntime/sessionRuntime";
 import { createDefaultGitClient } from "./terminalRuntime/systemClients";
+import { applyDetectedTitle } from "./terminalRuntime/terminalTitle";
 import type { DirectSessionListener } from "./terminalRuntime/types";
 import {
   type CreateTerminalRuntimeOptions,
@@ -255,14 +256,19 @@ export const createTerminalRuntime = ({
     onSessionEnd: markTerminalEnded,
     onTitleDetected: (terminalId, title) => {
       const terminal = terminals.get(terminalId);
-      if (!terminal || terminal.nameOrigin === "user") {
+      if (!terminal) {
         return;
       }
-      if (terminal.tentacleName === title) {
+      const decision = applyDetectedTitle({
+        currentName: terminal.tentacleName,
+        origin: terminal.nameOrigin,
+        title,
+      });
+      if (!decision.changed) {
         return;
       }
-      terminal.tentacleName = title;
-      terminal.nameOrigin = "conversation";
+      terminal.tentacleName = decision.name;
+      terminal.nameOrigin = decision.origin;
       persistRegistry();
       broadcastTerminalEvent({
         type: "terminal-updated",

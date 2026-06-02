@@ -35,4 +35,12 @@ describe("onTitleDetected contract", () => {
     expect(terminal).toEqual({ tentacleName: "Mine", nameOrigin: "user" });
     expect(persist).not.toHaveBeenCalled();
   });
+
+  it("ignores a noise title (shell name)", () => {
+    const terminal = { tentacleName: "Octogent Terminal 1", nameOrigin: "generated" };
+    const persist = vi.fn();
+    makeHandler(terminal, persist)("zsh");
+    expect(terminal).toEqual({ tentacleName: "Octogent Terminal 1", nameOrigin: "generated" });
+    expect(persist).not.toHaveBeenCalled();
+  });
 });
