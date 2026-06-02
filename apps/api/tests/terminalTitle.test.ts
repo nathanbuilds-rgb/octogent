@@ -56,6 +56,16 @@ describe("isMeaningfulConversationTitle", () => {
   it("accepts a real conversation topic", () => {
     expect(isMeaningfulConversationTitle("Refactor auth flow")).toBe(true);
   });
+
+  it("accepts a glyph-prefixed real Claude topic and strips the glyph", () => {
+    expect(isMeaningfulConversationTitle("✳ Rename Python variable x to count")).toBe(true);
+    expect(isMeaningfulConversationTitle("⠂ Rename Python variable x to count")).toBe(true);
+  });
+
+  it("rejects the glyph-prefixed default 'Claude Code' title", () => {
+    expect(isMeaningfulConversationTitle("✳ Claude Code")).toBe(false);
+    expect(isMeaningfulConversationTitle("⠐ Claude Code")).toBe(false);
+  });
 });
 
 describe("applyDetectedTitle", () => {
@@ -82,5 +92,25 @@ describe("applyDetectedTitle", () => {
     expect(applyDetectedTitle({ currentName: "Same", origin: "prompt", title: "Same" })).toEqual({
       changed: false,
     });
+  });
+
+  it("strips the status glyph from the adopted name", () => {
+    expect(
+      applyDetectedTitle({
+        currentName: "Octogent Terminal 1",
+        origin: "generated",
+        title: "✳ Rename Python variable x to count",
+      }),
+    ).toEqual({ changed: true, name: "Rename Python variable x to count", origin: "conversation" });
+  });
+
+  it("treats animation frames of the same topic as a no-op", () => {
+    expect(
+      applyDetectedTitle({
+        currentName: "Rename Python variable x to count",
+        origin: "conversation",
+        title: "⠐ Rename Python variable x to count",
+      }),
+    ).toEqual({ changed: false });
   });
 });
