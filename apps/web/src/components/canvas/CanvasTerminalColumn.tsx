@@ -21,7 +21,7 @@ type CanvasTerminalColumnProps = {
   nameDraft?: string;
   onBeginNameEdit?: (terminalId: string, currentName: string) => void;
   onNameDraftChange?: (value: string) => void;
-  onSubmitNameEdit?: (terminalId: string, currentName: string) => void;
+  onSubmitNameEdit?: (terminalId: string, currentName: string) => void | Promise<void>;
   onCancelNameEdit?: () => void;
 };
 

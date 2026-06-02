@@ -58,6 +58,8 @@ export const useTerminalMutations = ({
   const [pendingDeleteTerminal, setPendingDeleteTerminal] = useState<PendingDeleteTerminal | null>(
     null,
   );
+  // Guards the Esc-then-blur race: cancel sets this true, then clears editing, which
+  // unmounts the input and fires onBlur->submit; the submit handler skips that stale blur.
   const cancelTerminalNameSubmitRef = useRef(false);
 
   const beginTerminalNameEdit = useCallback(
