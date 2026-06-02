@@ -144,6 +144,12 @@ export const App = () => {
     isDeletingTerminalId,
     pendingDeleteTerminal,
     requestDeleteTerminal,
+    beginTerminalNameEdit,
+    submitTerminalRename,
+    cancelTerminalRename,
+    editingTerminalId,
+    terminalNameDraft,
+    setTerminalNameDraft,
   } = useTerminalMutations({
     readColumns: async () => readColumns(),
     setColumns: setTerminals,
@@ -631,6 +637,12 @@ export const App = () => {
               },
               onTerminalRenamed: handleTerminalRenamed,
               onTerminalActivity: handleTerminalActivity,
+              editingTerminalId,
+              terminalNameDraft,
+              onBeginTerminalNameEdit: beginTerminalNameEdit,
+              onTerminalNameDraftChange: setTerminalNameDraft,
+              onSubmitTerminalRename: submitTerminalRename,
+              onCancelTerminalRename: cancelTerminalRename,
               onRefreshColumns: async () => {
                 await refreshColumns();
               },

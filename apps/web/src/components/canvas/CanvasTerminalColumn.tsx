@@ -1,5 +1,5 @@
 import { Minus, X } from "lucide-react";
-import { type Ref, useCallback, useState } from "react";
+import { type Ref, useCallback, useEffect, useRef, useState } from "react";
 
 import type { GraphNode } from "../../app/canvas/types";
 import type { TerminalView } from "../../app/types";
@@ -17,6 +17,12 @@ type CanvasTerminalColumnProps = {
   panelRef?: Ref<HTMLElement> | undefined;
   onTerminalRenamed?: ((terminalId: string, tentacleName: string) => void) | undefined;
   onTerminalActivity?: ((terminalId: string) => void) | undefined;
+  isEditingName?: boolean;
+  nameDraft?: string;
+  onBeginNameEdit?: (terminalId: string, currentName: string) => void;
+  onNameDraftChange?: (value: string) => void;
+  onSubmitNameEdit?: (terminalId: string, currentName: string) => void;
+  onCancelNameEdit?: () => void;
 };
 
 export const CanvasTerminalColumn = ({
@@ -30,8 +36,21 @@ export const CanvasTerminalColumn = ({
   panelRef,
   onTerminalRenamed,
   onTerminalActivity,
+  isEditingName,
+  nameDraft,
+  onBeginNameEdit,
+  onNameDraftChange,
+  onSubmitNameEdit,
+  onCancelNameEdit,
 }: CanvasTerminalColumnProps) => {
   const [agentState, setAgentState] = useState<AgentRuntimeState>("idle");
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingName) {
+      nameInputRef.current?.focus();
+    }
+  }, [isEditingName]);
 
   const terminal = terminals.find((t) => t.terminalId === node.sessionId);
   const rawName = terminal?.tentacleName ?? node.tentacleId;
@@ -55,7 +74,28 @@ export const CanvasTerminalColumn = ({
       <div className="canvas-terminal-column-header">
         <div className="canvas-terminal-column-heading">
           <h2>
-            <span className="canvas-terminal-column-name">{tentacleName}</span>
+            {isEditingName ? (
+              <input
+                ref={nameInputRef}
+                className="canvas-terminal-column-name-input"
+                value={nameDraft ?? ""}
+                aria-label="Rename tentacle"
+                onChange={(e) => onNameDraftChange?.(e.target.value)}
+                onBlur={() => onSubmitNameEdit?.(node.sessionId ?? "", rawName)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSubmitNameEdit?.(node.sessionId ?? "", rawName);
+                  if (e.key === "Escape") onCancelNameEdit?.();
+                }}
+              />
+            ) : (
+              <span
+                className="canvas-terminal-column-name"
+                title="Double-click to rename"
+                onDoubleClick={() => onBeginNameEdit?.(node.sessionId ?? "", rawName)}
+              >
+                {tentacleName}
+              </span>
+            )}
             {workspaceMode === "worktree" && (
               <span className="canvas-terminal-column-badge">WT</span>
             )}

@@ -93,6 +93,12 @@ type CanvasPrimaryViewProps = {
   onTerminalRenamed?: ((terminalId: string, tentacleName: string) => void) | undefined;
   onTerminalActivity?: ((terminalId: string) => void) | undefined;
   onRefreshColumns?: () => Promise<void> | void;
+  editingTerminalId?: string | null;
+  terminalNameDraft?: string;
+  onBeginTerminalNameEdit?: (terminalId: string, currentName: string) => void;
+  onTerminalNameDraftChange?: (value: string) => void;
+  onSubmitTerminalRename?: (terminalId: string, currentName: string) => Promise<void>;
+  onCancelTerminalRename?: () => void;
 };
 
 const CLICK_THRESHOLD = 5;
@@ -224,6 +230,12 @@ export const CanvasPrimaryView = ({
   onTerminalRenamed,
   onTerminalActivity,
   onRefreshColumns,
+  editingTerminalId,
+  terminalNameDraft,
+  onBeginTerminalNameEdit,
+  onTerminalNameDraftChange,
+  onSubmitTerminalRename,
+  onCancelTerminalRename,
 }: CanvasPrimaryViewProps) => {
   const runtimeStateStoreRef = useRef<TerminalRuntimeStateStore | null>(null);
   if (runtimeStateStoreRef.current === null) {
@@ -1271,6 +1283,14 @@ export const CanvasPrimaryView = ({
                 onFocus={() => setSelectedNodeId(nodeId)}
                 onTerminalRenamed={onTerminalRenamed}
                 onTerminalActivity={onTerminalActivity}
+                isEditingName={editingTerminalId === node.sessionId}
+                {...(terminalNameDraft !== undefined ? { nameDraft: terminalNameDraft } : {})}
+                {...(onBeginTerminalNameEdit ? { onBeginNameEdit: onBeginTerminalNameEdit } : {})}
+                {...(onTerminalNameDraftChange
+                  ? { onNameDraftChange: onTerminalNameDraftChange }
+                  : {})}
+                {...(onSubmitTerminalRename ? { onSubmitNameEdit: onSubmitTerminalRename } : {})}
+                {...(onCancelTerminalRename ? { onCancelNameEdit: onCancelTerminalRename } : {})}
               />
             ))}
           </div>
