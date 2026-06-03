@@ -9,6 +9,7 @@ import type {
 import { useClickOutside } from "../app/hooks/useClickOutside";
 import type { TerminalAgentProvider } from "../app/types";
 import {
+  buildDeckGenerateTodosUrl,
   buildDeckSkillsUrl,
   buildDeckTentacleSkillsUrl,
   buildDeckTentacleUrl,
@@ -59,6 +60,7 @@ type DeckPrimaryViewProps = {
   onRefreshWorkspaceSetup: () => Promise<WorkspaceSetupSnapshot | null>;
   onRunWorkspaceSetupStep: (stepId: WorkspaceSetupStepId) => Promise<WorkspaceSetupSnapshot | null>;
   suppressWorkspaceSetupCard?: boolean;
+  openAddFormSignal?: number;
 };
 
 export const DeckPrimaryView = ({
@@ -69,6 +71,7 @@ export const DeckPrimaryView = ({
   onRefreshWorkspaceSetup,
   onRunWorkspaceSetupStep,
   suppressWorkspaceSetupCard = false,
+  openAddFormSignal,
 }: DeckPrimaryViewProps) => {
   const [tentacles, setTentacles] = useState<DeckTentacleSummary[]>([]);
   const [focus, setFocus] = useState<FocusState | null>(null);
@@ -112,6 +115,12 @@ export const DeckPrimaryView = ({
   useEffect(() => {
     void fetchTentacles();
   }, [fetchTentacles]);
+
+  useEffect(() => {
+    if (openAddFormSignal && openAddFormSignal > 0) {
+      setEmptyViewMode("adding");
+    }
+  }, [openAddFormSignal]);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,6 +294,18 @@ export const DeckPrimaryView = ({
     },
     [fetchTentacles, onRefreshWorkspaceSetup],
   );
+
+  const handleGenerateTodos = useCallback(async (name: string, description: string) => {
+    const response = await fetch(buildDeckGenerateTodosUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ name, description }),
+    });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => null)) as { todos?: unknown } | null;
+    if (!body || !Array.isArray(body.todos)) return [];
+    return body.todos.filter((t): t is string => typeof t === "string");
+  }, []);
 
   const handleTentacleSkillsSave = useCallback(
     async (tentacleId: string, suggestedSkills: string[]) => {
@@ -472,8 +493,7 @@ export const DeckPrimaryView = ({
               <AddTentacleForm
                 onSubmit={handleCreateTentacle}
                 onCancel={() => setEmptyViewMode("idle")}
-                // TODO(phase2b-task4): real generate handler
-                onGenerateTodos={async () => []}
+                onGenerateTodos={handleGenerateTodos}
                 isSubmitting={isCreating}
                 error={createError}
                 availableSkills={availableSkills}

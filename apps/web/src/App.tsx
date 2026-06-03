@@ -48,6 +48,7 @@ export const App = () => {
     number | null
   >(null);
   const [deckSidebarContent, setDeckSidebarContent] = useState<ReactNode>(null);
+  const [openDeckAddFormSignal, setOpenDeckAddFormSignal] = useState(0);
   const [conversationsSidebarContent, setConversationsSidebarContent] = useState<ReactNode>(null);
   const [conversationsActionPanel, setConversationsActionPanel] = useState<ReactNode>(null);
   const [promptsSidebarContent, setPromptsSidebarContent] = useState<ReactNode>(null);
@@ -472,6 +473,7 @@ export const App = () => {
               onRefreshWorkspaceSetup: refreshWorkspaceSetup,
               onRunWorkspaceSetupStep: runWorkspaceSetupStep,
               suppressWorkspaceSetupCard: true,
+              openAddFormSignal: openDeckAddFormSignal,
             }}
             isMonitorVisible={isMonitorVisible}
             activityPrimaryViewProps={{
@@ -555,14 +557,9 @@ export const App = () => {
               onCreateWorktreeTerminal: async () => {
                 return await createTerminal("worktree", undefined, OCTOBOSS_ID);
               },
-              onCreateTentacle: async () => {
-                const response = await fetch("/api/deck/tentacles", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name: "", description: "" }),
-                });
-                if (!response.ok) return;
-                await refreshColumns();
+              onCreateTentacle: () => {
+                setActivePrimaryNav(2);
+                setOpenDeckAddFormSignal((n) => n + 1);
               },
               onSpawnSwarm: async (tentacleId, workspaceMode) => {
                 const response = await fetch(
