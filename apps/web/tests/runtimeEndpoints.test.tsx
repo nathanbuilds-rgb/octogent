@@ -6,6 +6,7 @@ import {
   buildConversationExportUrl,
   buildConversationSessionUrl,
   buildConversationsUrl,
+  buildDeckGenerateTodosUrl,
   buildGithubSummaryUrl,
   buildMonitorConfigUrl,
   buildMonitorFeedUrl,
@@ -236,5 +237,17 @@ describe("runtimeEndpoints", () => {
         new URL("https://workspace.example.com/dashboard") as unknown as Location,
       ),
     ).toBe("ws://127.0.0.1:8787/api/terminal-events/ws");
+  });
+});
+
+describe("buildDeckGenerateTodosUrl", () => {
+  it("returns the relative path when no runtime base url is set", () => {
+    expect(buildDeckGenerateTodosUrl("")).toBe("/api/deck/tentacles/generate-todos");
+  });
+
+  it("returns an absolute url when a runtime base url is provided", () => {
+    expect(buildDeckGenerateTodosUrl("http://127.0.0.1:8787")).toBe(
+      "http://127.0.0.1:8787/api/deck/tentacles/generate-todos",
+    );
   });
 });
