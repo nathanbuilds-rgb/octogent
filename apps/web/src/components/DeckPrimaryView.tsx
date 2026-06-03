@@ -60,7 +60,8 @@ type DeckPrimaryViewProps = {
   onRefreshWorkspaceSetup: () => Promise<WorkspaceSetupSnapshot | null>;
   onRunWorkspaceSetupStep: (stepId: WorkspaceSetupStepId) => Promise<WorkspaceSetupSnapshot | null>;
   suppressWorkspaceSetupCard?: boolean;
-  openAddFormSignal?: number;
+  pendingAddTentacle?: boolean;
+  onPendingAddTentacleConsumed?: () => void;
 };
 
 export const DeckPrimaryView = ({
@@ -71,7 +72,8 @@ export const DeckPrimaryView = ({
   onRefreshWorkspaceSetup,
   onRunWorkspaceSetupStep,
   suppressWorkspaceSetupCard = false,
-  openAddFormSignal,
+  pendingAddTentacle,
+  onPendingAddTentacleConsumed,
 }: DeckPrimaryViewProps) => {
   const [tentacles, setTentacles] = useState<DeckTentacleSummary[]>([]);
   const [focus, setFocus] = useState<FocusState | null>(null);
@@ -117,10 +119,12 @@ export const DeckPrimaryView = ({
   }, [fetchTentacles]);
 
   useEffect(() => {
-    if (openAddFormSignal && openAddFormSignal > 0) {
+    if (pendingAddTentacle) {
       setEmptyViewMode("adding");
+      setCreateError(null);
+      onPendingAddTentacleConsumed?.();
     }
-  }, [openAddFormSignal]);
+  }, [pendingAddTentacle, onPendingAddTentacleConsumed]);
 
   useEffect(() => {
     let cancelled = false;

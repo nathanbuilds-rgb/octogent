@@ -48,7 +48,11 @@ export const App = () => {
     number | null
   >(null);
   const [deckSidebarContent, setDeckSidebarContent] = useState<ReactNode>(null);
-  const [openDeckAddFormSignal, setOpenDeckAddFormSignal] = useState(0);
+  // Transient "open the deck wizard" intent. A boolean (not a counter) consumed +
+  // acked by DeckPrimaryView, so it never re-fires when the deck view remounts on
+  // later tab navigation.
+  const [pendingDeckAdd, setPendingDeckAdd] = useState(false);
+  const handlePendingDeckAddConsumed = useCallback(() => setPendingDeckAdd(false), []);
   const [conversationsSidebarContent, setConversationsSidebarContent] = useState<ReactNode>(null);
   const [conversationsActionPanel, setConversationsActionPanel] = useState<ReactNode>(null);
   const [promptsSidebarContent, setPromptsSidebarContent] = useState<ReactNode>(null);
@@ -473,7 +477,8 @@ export const App = () => {
               onRefreshWorkspaceSetup: refreshWorkspaceSetup,
               onRunWorkspaceSetupStep: runWorkspaceSetupStep,
               suppressWorkspaceSetupCard: true,
-              openAddFormSignal: openDeckAddFormSignal,
+              pendingAddTentacle: pendingDeckAdd,
+              onPendingAddTentacleConsumed: handlePendingDeckAddConsumed,
             }}
             isMonitorVisible={isMonitorVisible}
             activityPrimaryViewProps={{
@@ -559,7 +564,7 @@ export const App = () => {
               },
               onCreateTentacle: () => {
                 setActivePrimaryNav(2);
-                setOpenDeckAddFormSignal((n) => n + 1);
+                setPendingDeckAdd(true);
               },
               onSpawnSwarm: async (tentacleId, workspaceMode) => {
                 const response = await fetch(

@@ -44,28 +44,45 @@ const baseProps = {
   workspaceSetupError: null,
   onRefreshWorkspaceSetup: async () => null,
   onRunWorkspaceSetupStep: async () => null,
-  openAddFormSignal: 0,
+  pendingAddTentacle: false,
+  onPendingAddTentacleConsumed: () => {},
 } as unknown as React.ComponentProps<typeof DeckPrimaryView>;
 
-describe("DeckPrimaryView open-add-form signal", () => {
+describe("DeckPrimaryView pending-add-tentacle intent", () => {
   beforeEach(installFetchStub);
   afterEach(() => vi.unstubAllGlobals());
 
-  it("opens the wizard when openAddFormSignal increments", async () => {
-    const { rerender } = render(<DeckPrimaryView {...baseProps} openAddFormSignal={0} />);
+  it("opens the wizard and acks when pendingAddTentacle becomes true", async () => {
+    const onPendingAddTentacleConsumed = vi.fn();
+    const { rerender } = render(<DeckPrimaryView {...baseProps} pendingAddTentacle={false} />);
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
-    rerender(<DeckPrimaryView {...baseProps} openAddFormSignal={1} />);
+    rerender(
+      <DeckPrimaryView
+        {...baseProps}
+        pendingAddTentacle={true}
+        onPendingAddTentacleConsumed={onPendingAddTentacleConsumed}
+      />,
+    );
+    await waitFor(() => expect(screen.getByLabelText("Name")).toBeInTheDocument());
+    // The intent is consumed exactly once so it can be reset by the parent.
+    expect(onPendingAddTentacleConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the wizard even when tentacles already exist (populated overlay)", async () => {
+    vi.unstubAllGlobals();
+    installPopulatedFetchStub();
+    const { rerender } = render(<DeckPrimaryView {...baseProps} pendingAddTentacle={false} />);
+    await waitFor(() => expect(screen.getByText("Existing")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    rerender(<DeckPrimaryView {...baseProps} pendingAddTentacle={true} />);
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeInTheDocument());
   });
 
-  it("opens the wizard on signal even when tentacles already exist", async () => {
-    vi.unstubAllGlobals();
-    installPopulatedFetchStub();
-    const { rerender } = render(<DeckPrimaryView {...baseProps} openAddFormSignal={0} />);
-    // Wait for the populated branch (the existing tentacle) to render.
-    await waitFor(() => expect(screen.getByText("Existing")).toBeInTheDocument());
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
-    rerender(<DeckPrimaryView {...baseProps} openAddFormSignal={1} />);
-    await waitFor(() => expect(screen.getByLabelText("Name")).toBeInTheDocument());
+  it("does NOT auto-open on a fresh mount when the intent is already false (remount safety)", async () => {
+    // Simulates returning to the deck tab (DeckPrimaryView remounts) after the
+    // intent was already consumed+reset by the parent. The wizard must stay closed.
+    render(<DeckPrimaryView {...baseProps} pendingAddTentacle={false} />);
+    // Give mount effects a tick; the wizard must never appear.
+    await waitFor(() => expect(screen.queryByLabelText("Name")).not.toBeInTheDocument());
   });
 });
