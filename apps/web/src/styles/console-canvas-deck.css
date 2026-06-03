@@ -524,6 +524,74 @@
   cursor: not-allowed;
 }
 
+/* ─── Wizard steps & navigation ──────────────────────────────────────────── */
+
+.deck-add-form-step-indicator {
+  margin-left: auto;
+  font-family: var(--font-main);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.deck-add-form-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.deck-add-form-appearance {
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.deck-add-form-appearance > summary {
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 0.5rem;
+}
+
+.deck-add-form-appearance[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.deck-add-form-generate {
+  align-self: flex-start;
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  background: #11161d;
+  border: 1px solid #2b2f36;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.deck-add-form-generate:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.deck-add-form-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deck-add-form-nav {
+  display: flex;
+}
+
+.deck-add-form-nav > .deck-add-form-submit {
+  flex: 1;
+}
+
 /* ─── Agent provider select row ──────────────────────────────────────────── */
 
 .deck-empty-agent-select-row {

@@ -255,6 +255,7 @@ export const DeckPrimaryView = ({
       color: string,
       octopus: OctopusAppearancePayload,
       suggestedSkills: string[],
+      todos: string[],
     ) => {
       setIsCreating(true);
       setCreateError(null);
@@ -262,7 +263,7 @@ export const DeckPrimaryView = ({
         const response = await fetch(buildDeckTentaclesUrl(), {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ name, description, color, octopus, suggestedSkills }),
+          body: JSON.stringify({ name, description, color, octopus, suggestedSkills, todos }),
         });
         if (!response.ok) {
           const body = await response.json().catch(() => null);
@@ -471,6 +472,8 @@ export const DeckPrimaryView = ({
               <AddTentacleForm
                 onSubmit={handleCreateTentacle}
                 onCancel={() => setEmptyViewMode("idle")}
+                // TODO(phase2b-task4): real generate handler
+                onGenerateTodos={async () => []}
                 isSubmitting={isCreating}
                 error={createError}
                 availableSkills={availableSkills}
