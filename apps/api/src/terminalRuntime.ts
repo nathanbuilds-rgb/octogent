@@ -157,6 +157,19 @@ export const createTerminalRuntime = ({
     });
   };
 
+  const markConversationStarted = (terminalId: string, conversationId: string) => {
+    const terminal = terminals.get(terminalId);
+    if (!terminal) {
+      return;
+    }
+    if (terminal.conversationId === conversationId && terminal.conversationStarted) {
+      return;
+    }
+    terminal.conversationId = conversationId;
+    terminal.conversationStarted = true;
+    persistRegistry();
+  };
+
   const markTerminalEnded = (terminalId: string, details: TerminalSessionEndDetails) => {
     const terminal = terminals.get(terminalId);
     if (!terminal) {
@@ -253,6 +266,7 @@ export const createTerminalRuntime = ({
     onStateChange: broadcastTerminalStateChanged,
     onSessionStart: markTerminalRunning,
     onSessionEnd: markTerminalEnded,
+    onConversationStarted: markConversationStarted,
   });
 
   const gitOps = createGitOperations({
