@@ -28,7 +28,7 @@ describe("TodoChecklistEditor", () => {
     const onChange = vi.fn();
     render(<TodoChecklistEditor items={["first", "second"]} onChange={onChange} />);
     const removeButtons = screen.getAllByRole("button", { name: /remove/i });
-    fireEvent.click(removeButtons[0]);
+    fireEvent.click(removeButtons[0] as HTMLElement);
     expect(onChange).toHaveBeenCalledWith(["second"]);
   });
 });
