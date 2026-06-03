@@ -48,6 +48,11 @@ export const App = () => {
     number | null
   >(null);
   const [deckSidebarContent, setDeckSidebarContent] = useState<ReactNode>(null);
+  // Transient "open the deck wizard" intent. A boolean (not a counter) consumed +
+  // acked by DeckPrimaryView, so it never re-fires when the deck view remounts on
+  // later tab navigation.
+  const [pendingDeckAdd, setPendingDeckAdd] = useState(false);
+  const handlePendingDeckAddConsumed = useCallback(() => setPendingDeckAdd(false), []);
   const [conversationsSidebarContent, setConversationsSidebarContent] = useState<ReactNode>(null);
   const [conversationsActionPanel, setConversationsActionPanel] = useState<ReactNode>(null);
   const [promptsSidebarContent, setPromptsSidebarContent] = useState<ReactNode>(null);
@@ -478,6 +483,8 @@ export const App = () => {
               onRefreshWorkspaceSetup: refreshWorkspaceSetup,
               onRunWorkspaceSetupStep: runWorkspaceSetupStep,
               suppressWorkspaceSetupCard: true,
+              pendingAddTentacle: pendingDeckAdd,
+              onPendingAddTentacleConsumed: handlePendingDeckAddConsumed,
             }}
             isMonitorVisible={isMonitorVisible}
             activityPrimaryViewProps={{
@@ -561,14 +568,9 @@ export const App = () => {
               onCreateWorktreeTerminal: async () => {
                 return await createTerminal("worktree", undefined, OCTOBOSS_ID);
               },
-              onCreateTentacle: async () => {
-                const response = await fetch("/api/deck/tentacles", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name: "", description: "" }),
-                });
-                if (!response.ok) return;
-                await refreshColumns();
+              onCreateTentacle: () => {
+                setActivePrimaryNav(2);
+                setPendingDeckAdd(true);
               },
               onSpawnSwarm: async (tentacleId, workspaceMode) => {
                 const response = await fetch(

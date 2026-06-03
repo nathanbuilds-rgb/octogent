@@ -298,6 +298,32 @@
 
 /* ─── Add terminal form ──────────────────────────────────────────────────── */
 
+/* Overlay host for the Add Tentacle wizard when the deck already has tentacles. */
+.deck-add-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(5, 7, 10, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.deck-add-overlay-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(540px, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid #2b2f36;
+  border-radius: 10px;
+  background: #0b0d10;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  animation: deck-form-slide-in 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .deck-add-form {
   display: flex;
   flex-direction: column;
@@ -522,6 +548,74 @@
 .deck-add-form-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ─── Wizard steps & navigation ──────────────────────────────────────────── */
+
+.deck-add-form-step-indicator {
+  margin-left: auto;
+  font-family: var(--font-main);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.deck-add-form-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.deck-add-form-appearance {
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.deck-add-form-appearance > summary {
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 0.5rem;
+}
+
+.deck-add-form-appearance[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.deck-add-form-generate {
+  align-self: flex-start;
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  background: #11161d;
+  border: 1px solid #2b2f36;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.deck-add-form-generate:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.deck-add-form-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deck-add-form-nav {
+  display: flex;
+}
+
+.deck-add-form-nav > .deck-add-form-submit {
+  flex: 1;
 }
 
 /* ─── Agent provider select row ──────────────────────────────────────────── */
@@ -1521,4 +1615,88 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* ─── Todo checklist editor ──────────────────────────────────────────────── */
+
+.deck-todo-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.deck-todo-editor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.deck-todo-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.deck-todo-editor-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  background: #11161d;
+  border: 1px solid #2b2f36;
+  padding: 0.5rem 0.6rem;
+  transition: border-color 0.15s;
+}
+
+.deck-todo-editor-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.deck-todo-editor-remove {
+  font-family: var(--font-main);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: #11161d;
+  border: 1px solid #2b2f36;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.deck-todo-editor-remove:hover {
+  color: #e05555;
+  border-color: #e05555;
+}
+
+.deck-todo-editor-add {
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: transparent;
+  border: 1px dashed #2b2f36;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.deck-todo-editor-add:hover {
+  border-color: var(--accent-primary);
+  background: rgba(250, 163, 44, 0.06);
+}
+
+.deck-todo-editor-empty {
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 0.5rem 0;
 }

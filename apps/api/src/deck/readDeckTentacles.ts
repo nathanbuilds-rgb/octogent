@@ -141,6 +141,17 @@ const parseContextMd = (
   return { displayName, description, suggestedSkills: parseSuggestedSkillsFromContext(content) };
 };
 
+// ─── Todo markdown builder ──────────────────────────────────────────────────
+
+/** Build a todo.md body from plain task strings (unchecked checklist items). */
+export const buildTodoMarkdown = (todos: string[]): string => {
+  const cleaned = todos.map((todo) => todo.trim()).filter((todo) => todo.length > 0);
+  if (cleaned.length === 0) {
+    return "# Todo\n";
+  }
+  return `# Todo\n${cleaned.map((todo) => `- [ ] ${todo}`).join("\n")}\n`;
+};
+
 // ─── Todo parsing ───────────────────────────────────────────────────────────
 
 export const parseTodoProgress = (
@@ -471,6 +482,7 @@ type CreateDeckTentacleInput = {
   color: string;
   octopus: DeckOctopusAppearance;
   suggestedSkills?: string[];
+  todos?: string[];
 };
 
 type CreateDeckTentacleResult =
@@ -506,7 +518,8 @@ export const createDeckTentacle = (
     .sort((a, b) => a.localeCompare(b));
   const contextMd = applySuggestedSkillsToContext(baseContextMd, suggestedSkills);
   writeFileSync(join(tentacleDir, "CONTEXT.md"), contextMd);
-  writeFileSync(join(tentacleDir, "todo.md"), "# Todo\n");
+  const todos = (input.todos ?? []).map((todo) => todo.trim()).filter((todo) => todo.length > 0);
+  writeFileSync(join(tentacleDir, "todo.md"), buildTodoMarkdown(todos));
 
   // Persist app metadata in deck state
   const deckState = readDeckState(stateDir);
@@ -530,9 +543,9 @@ export const createDeckTentacle = (
       octopus: input.octopus,
       scope: { paths: [], tags: [] },
       vaultFiles: [],
-      todoTotal: 0,
+      todoTotal: todos.length,
       todoDone: 0,
-      todoItems: [],
+      todoItems: todos.map((text) => ({ text, done: false })),
       suggestedSkills,
     },
   };

@@ -291,6 +291,14 @@ export const buildDeckTentaclesUrl = (runtimeBaseUrl = readRuntimeBaseUrl()) => 
   return buildAbsoluteUrl(runtimeBaseUrl, "/api/deck/tentacles");
 };
 
+export const buildDeckGenerateTodosUrl = (runtimeBaseUrl = readRuntimeBaseUrl()) => {
+  if (!runtimeBaseUrl) {
+    return "/api/deck/tentacles/generate-todos";
+  }
+
+  return buildAbsoluteUrl(runtimeBaseUrl, "/api/deck/tentacles/generate-todos");
+};
+
 export const buildDeckSkillsUrl = (runtimeBaseUrl = readRuntimeBaseUrl()) => {
   if (!runtimeBaseUrl) {
     return "/api/deck/skills";

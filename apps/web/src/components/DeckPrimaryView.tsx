@@ -9,6 +9,7 @@ import type {
 import { useClickOutside } from "../app/hooks/useClickOutside";
 import type { TerminalAgentProvider } from "../app/types";
 import {
+  buildDeckGenerateTodosUrl,
   buildDeckSkillsUrl,
   buildDeckTentacleSkillsUrl,
   buildDeckTentacleUrl,
@@ -59,6 +60,8 @@ type DeckPrimaryViewProps = {
   onRefreshWorkspaceSetup: () => Promise<WorkspaceSetupSnapshot | null>;
   onRunWorkspaceSetupStep: (stepId: WorkspaceSetupStepId) => Promise<WorkspaceSetupSnapshot | null>;
   suppressWorkspaceSetupCard?: boolean;
+  pendingAddTentacle?: boolean;
+  onPendingAddTentacleConsumed?: () => void;
 };
 
 export const DeckPrimaryView = ({
@@ -69,6 +72,8 @@ export const DeckPrimaryView = ({
   onRefreshWorkspaceSetup,
   onRunWorkspaceSetupStep,
   suppressWorkspaceSetupCard = false,
+  pendingAddTentacle,
+  onPendingAddTentacleConsumed,
 }: DeckPrimaryViewProps) => {
   const [tentacles, setTentacles] = useState<DeckTentacleSummary[]>([]);
   const [focus, setFocus] = useState<FocusState | null>(null);
@@ -112,6 +117,14 @@ export const DeckPrimaryView = ({
   useEffect(() => {
     void fetchTentacles();
   }, [fetchTentacles]);
+
+  useEffect(() => {
+    if (pendingAddTentacle) {
+      setEmptyViewMode("adding");
+      setCreateError(null);
+      onPendingAddTentacleConsumed?.();
+    }
+  }, [pendingAddTentacle, onPendingAddTentacleConsumed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,6 +268,7 @@ export const DeckPrimaryView = ({
       color: string,
       octopus: OctopusAppearancePayload,
       suggestedSkills: string[],
+      todos: string[],
     ) => {
       setIsCreating(true);
       setCreateError(null);
@@ -262,7 +276,7 @@ export const DeckPrimaryView = ({
         const response = await fetch(buildDeckTentaclesUrl(), {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ name, description, color, octopus, suggestedSkills }),
+          body: JSON.stringify({ name, description, color, octopus, suggestedSkills, todos }),
         });
         if (!response.ok) {
           const body = await response.json().catch(() => null);
@@ -284,6 +298,18 @@ export const DeckPrimaryView = ({
     },
     [fetchTentacles, onRefreshWorkspaceSetup],
   );
+
+  const handleGenerateTodos = useCallback(async (name: string, description: string) => {
+    const response = await fetch(buildDeckGenerateTodosUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ name, description }),
+    });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => null)) as { todos?: unknown } | null;
+    if (!body || !Array.isArray(body.todos)) return [];
+    return body.todos.filter((t): t is string => typeof t === "string");
+  }, []);
 
   const handleTentacleSkillsSave = useCallback(
     async (tentacleId: string, suggestedSkills: string[]) => {
@@ -419,6 +445,20 @@ export const DeckPrimaryView = ({
     return () => onSidebarContent?.(null);
   }, [onSidebarContent, sidebarContent]);
 
+  // The wizard is shared by both the empty state (side panel) and the populated
+  // state (overlay) so "Add Tentacle" works whether or not tentacles exist.
+  const addTentacleForm =
+    emptyViewMode === "adding" ? (
+      <AddTentacleForm
+        onSubmit={handleCreateTentacle}
+        onCancel={() => setEmptyViewMode("idle")}
+        onGenerateTodos={handleGenerateTodos}
+        isSubmitting={isCreating}
+        error={createError}
+        availableSkills={availableSkills}
+      />
+    ) : null;
+
   // ─── Empty state (no tentacles) ─────────────────────────────────────────────
 
   if (tentacles.length === 0 && focus?.type !== "terminal") {
@@ -466,17 +506,7 @@ export const DeckPrimaryView = ({
               />
             )}
           </div>
-          {emptyViewMode === "adding" && (
-            <div className="deck-empty-right">
-              <AddTentacleForm
-                onSubmit={handleCreateTentacle}
-                onCancel={() => setEmptyViewMode("idle")}
-                isSubmitting={isCreating}
-                error={createError}
-                availableSkills={availableSkills}
-              />
-            </div>
-          )}
+          {addTentacleForm && <div className="deck-empty-right">{addTentacleForm}</div>}
         </div>
       </section>
     );
@@ -608,6 +638,11 @@ export const DeckPrimaryView = ({
           </div>
         )}
       </div>
+      {addTentacleForm && (
+        <div className="deck-add-overlay">
+          <div className="deck-add-overlay-panel">{addTentacleForm}</div>
+        </div>
+      )}
     </section>
   );
 };

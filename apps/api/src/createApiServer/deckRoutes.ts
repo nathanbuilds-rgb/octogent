@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { generateTodosFromDescription } from "../deck/generateTodos";
 import {
   addTodoItem,
   createDeckTentacle,
@@ -95,6 +96,10 @@ export const handleDeckTentaclesRoute: ApiRouteHandler = async (
       body && Array.isArray(body.suggestedSkills)
         ? body.suggestedSkills.filter((skill): skill is string => typeof skill === "string")
         : [];
+    const todos =
+      body && Array.isArray(body.todos)
+        ? body.todos.filter((todo): todo is string => typeof todo === "string")
+        : [];
 
     const rawOctopus =
       body && typeof body.octopus === "object" && body.octopus !== null
@@ -109,7 +114,7 @@ export const handleDeckTentaclesRoute: ApiRouteHandler = async (
 
     const result = createDeckTentacle(
       workspaceCwd,
-      { name, description, color, octopus, suggestedSkills },
+      { name, description, color, octopus, suggestedSkills, todos },
       projectStateDir,
     );
     if (!result.ok) {
@@ -122,6 +127,36 @@ export const handleDeckTentaclesRoute: ApiRouteHandler = async (
   }
 
   writeMethodNotAllowed(response, corsOrigin);
+  return true;
+};
+
+const DECK_GENERATE_TODOS_PATH = "/api/deck/tentacles/generate-todos";
+
+export const handleDeckGenerateTodosRoute: ApiRouteHandler = async ({
+  request,
+  response,
+  requestUrl,
+  corsOrigin,
+}) => {
+  if (requestUrl.pathname !== DECK_GENERATE_TODOS_PATH) return false;
+  if (request.method !== "POST") {
+    writeMethodNotAllowed(response, corsOrigin);
+    return true;
+  }
+
+  const bodyReadResult = await readJsonBodyOrWriteError(request, response, corsOrigin);
+  if (!bodyReadResult.ok) return true;
+
+  const body = bodyReadResult.payload as Record<string, unknown> | null;
+  const description = body && typeof body.description === "string" ? body.description.trim() : "";
+  const name = body && typeof body.name === "string" ? body.name : "";
+  if (description.length === 0) {
+    writeJson(response, 400, { error: "description (non-empty string) is required" }, corsOrigin);
+    return true;
+  }
+
+  const todos = await generateTodosFromDescription(name, description);
+  writeJson(response, 200, { todos }, corsOrigin);
   return true;
 };
 
