@@ -319,7 +319,10 @@ describe("createSessionRuntime", () => {
     });
 
     expect(runtime.startSession(tentacleId)).toBe(true);
-    expect(pty.write).toHaveBeenNthCalledWith(1, "claude\r");
+    expect(pty.write).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^claude --session-id [0-9a-f-]{36}\r$/),
+    );
 
     expect(runtime.closeSession(tentacleId)).toBe(true);
     vi.advanceTimersByTime(10_000);
@@ -732,7 +735,10 @@ describe("createSessionRuntime", () => {
 
     expect(runtime.startSession(tentacleId)).toBe(true);
     expect(sessions.has(tentacleId)).toBe(true);
-    expect(pty.write).toHaveBeenNthCalledWith(1, "claude\r");
+    expect(pty.write).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^claude --session-id [0-9a-f-]{36}\r$/),
+    );
 
     vi.advanceTimersByTime(4_000);
     expect(pty.write).toHaveBeenNthCalledWith(
@@ -790,7 +796,10 @@ describe("createSessionRuntime", () => {
       runtime.handleUpgrade(createUpgradeRequest(tentacleId), {} as Duplex, Buffer.alloc(0)),
     ).toBe(true);
 
-    expect(pty.write).toHaveBeenNthCalledWith(1, "claude\r");
+    expect(pty.write).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^claude --session-id [0-9a-f-]{36}\r$/),
+    );
 
     vi.advanceTimersByTime(4_000);
     expect(pty.write).toHaveBeenNthCalledWith(2, "\u001b[200~You are working on docs.\u001b[201~");
@@ -911,6 +920,169 @@ describe("createSessionRuntime", () => {
       }),
     );
     expect(sessions.has(tentacleId)).toBe(false);
+
+    runtime.close();
+  });
+});
+
+describe("ensureAgentBootstrapped resume branching", () => {
+  const temporaryDirectories: string[] = [];
+
+  const createTemporaryDirectory = () => {
+    const directory = mkdtempSync(join(tmpdir(), "octogent-session-runtime-test-"));
+    temporaryDirectories.push(directory);
+    return directory;
+  };
+
+  beforeEach(() => {
+    createShellEnvironmentMock.mockClear();
+    ensureSpawnHelperMock.mockClear();
+    spawnMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const directory of temporaryDirectories) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+    temporaryDirectories.length = 0;
+  });
+
+  it("starts a fresh claude-code conversation with a generated session id", () => {
+    const tentacleId = "tentacle-1";
+    const terminals = new Map<string, PersistedTerminal>([
+      [
+        tentacleId,
+        {
+          terminalId: tentacleId,
+          tentacleId,
+          tentacleName: tentacleId,
+          createdAt: new Date().toISOString(),
+          workspaceMode: "shared",
+          initialPrompt: "Investigate and report back.",
+        },
+      ],
+    ]);
+    const sessions = new Map<string, TerminalSession>();
+    const websocketServer = new FakeWebSocketServer();
+    const pty = new FakePty();
+    const transcriptDirectoryPath = createTemporaryDirectory();
+    spawnMock.mockReturnValue(pty);
+    const onConversationStarted = vi.fn();
+
+    const runtime = createSessionRuntime({
+      websocketServer: websocketServer as unknown as import("ws").WebSocketServer,
+      terminals,
+      sessions,
+      getTentacleWorkspaceCwd: () => process.cwd(),
+      isDebugPtyLogsEnabled: false,
+      ptyLogDir: process.cwd(),
+      transcriptDirectoryPath,
+      sessionIdleGraceMs: 1_000,
+      scrollbackMaxBytes: 1_024,
+      onConversationStarted,
+    });
+
+    expect(runtime.startSession(tentacleId)).toBe(true);
+    expect(pty.write).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^claude --session-id [0-9a-f-]{36}\r$/),
+    );
+    const writtenId = (pty.write.mock.calls[0]?.[0] as string).match(
+      /--session-id ([0-9a-f-]{36})/,
+    )?.[1];
+    expect(onConversationStarted).toHaveBeenCalledWith(tentacleId, writtenId);
+
+    runtime.close();
+  });
+
+  it("resumes an existing claude-code conversation without injecting the prompt", () => {
+    vi.useFakeTimers();
+
+    const tentacleId = "tentacle-1";
+    const terminals = new Map<string, PersistedTerminal>([
+      [
+        tentacleId,
+        {
+          terminalId: tentacleId,
+          tentacleId,
+          tentacleName: tentacleId,
+          createdAt: new Date().toISOString(),
+          workspaceMode: "shared",
+          initialPrompt: "Investigate and report back.",
+          conversationId: "11111111-1111-4111-8111-111111111111",
+          conversationStarted: true,
+        },
+      ],
+    ]);
+    const sessions = new Map<string, TerminalSession>();
+    const websocketServer = new FakeWebSocketServer();
+    const pty = new FakePty();
+    const transcriptDirectoryPath = createTemporaryDirectory();
+    spawnMock.mockReturnValue(pty);
+    const onConversationStarted = vi.fn();
+
+    const runtime = createSessionRuntime({
+      websocketServer: websocketServer as unknown as import("ws").WebSocketServer,
+      terminals,
+      sessions,
+      getTentacleWorkspaceCwd: () => process.cwd(),
+      isDebugPtyLogsEnabled: false,
+      ptyLogDir: process.cwd(),
+      transcriptDirectoryPath,
+      sessionIdleGraceMs: 1_000,
+      scrollbackMaxBytes: 1_024,
+      onConversationStarted,
+    });
+
+    expect(runtime.startSession(tentacleId)).toBe(true);
+    expect(pty.write).toHaveBeenNthCalledWith(
+      1,
+      "claude --resume 11111111-1111-4111-8111-111111111111\r",
+    );
+
+    vi.advanceTimersByTime(10_000);
+    expect(pty.write).toHaveBeenCalledTimes(1);
+    expect(onConversationStarted).not.toHaveBeenCalled();
+
+    runtime.close();
+  });
+
+  it("leaves the codex bootstrap command unchanged", () => {
+    const tentacleId = "tentacle-1";
+    const terminals = new Map<string, PersistedTerminal>([
+      [
+        tentacleId,
+        {
+          terminalId: tentacleId,
+          tentacleId,
+          tentacleName: tentacleId,
+          createdAt: new Date().toISOString(),
+          workspaceMode: "shared",
+          agentProvider: "codex",
+        },
+      ],
+    ]);
+    const sessions = new Map<string, TerminalSession>();
+    const websocketServer = new FakeWebSocketServer();
+    const pty = new FakePty();
+    const transcriptDirectoryPath = createTemporaryDirectory();
+    spawnMock.mockReturnValue(pty);
+
+    const runtime = createSessionRuntime({
+      websocketServer: websocketServer as unknown as import("ws").WebSocketServer,
+      terminals,
+      sessions,
+      getTentacleWorkspaceCwd: () => process.cwd(),
+      isDebugPtyLogsEnabled: false,
+      ptyLogDir: process.cwd(),
+      transcriptDirectoryPath,
+      sessionIdleGraceMs: 1_000,
+      scrollbackMaxBytes: 1_024,
+    });
+
+    expect(runtime.startSession(tentacleId)).toBe(true);
+    expect(pty.write).toHaveBeenNthCalledWith(1, "codex\r");
 
     runtime.close();
   });

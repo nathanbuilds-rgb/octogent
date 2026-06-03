@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type WriteStream, createWriteStream, existsSync, mkdirSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import { join } from "node:path";
@@ -50,6 +51,7 @@ type CreateSessionRuntimeOptions = {
   onStateChange?: (terminalId: string, state: AgentRuntimeState, toolName?: string) => void;
   onSessionStart?: (terminalId: string, details: TerminalSessionStartDetails) => void;
   onSessionEnd?: (terminalId: string, details: TerminalSessionEndDetails) => void;
+  onConversationStarted?: (terminalId: string, conversationId: string) => void;
 };
 
 const ANSI_BEL = String.fromCharCode(0x07);
@@ -57,6 +59,9 @@ const ANSI_ESCAPE = String.fromCharCode(0x1b);
 const BROKEN_OSC_TAIL_RE = new RegExp(
   `^\\][^${ANSI_BEL}${ANSI_ESCAPE}]*(?:${ANSI_BEL}|${ANSI_ESCAPE}\\\\)`,
 );
+const CONVERSATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidConversationId = (value: string | undefined): value is string =>
+  typeof value === "string" && CONVERSATION_ID_RE.test(value);
 
 export const createSessionRuntime = ({
   websocketServer,
@@ -73,6 +78,7 @@ export const createSessionRuntime = ({
   onStateChange,
   onSessionStart,
   onSessionEnd,
+  onConversationStarted,
 }: CreateSessionRuntimeOptions) => {
   const DEFAULT_PTY_COLS = 120;
   const DEFAULT_PTY_ROWS = 35;
@@ -474,13 +480,29 @@ export const createSessionRuntime = ({
     const terminal = terminals.get(session.terminalId);
     const provider = terminal?.agentProvider ?? DEFAULT_AGENT_PROVIDER;
 
-    const bootstrapCommand =
-      TERMINAL_BOOTSTRAP_COMMANDS[provider] ?? TERMINAL_BOOTSTRAP_COMMANDS[DEFAULT_AGENT_PROVIDER];
-    appendDebugLog(session, `bootstrap session=${sessionId} command=${bootstrapCommand}`);
-    session.pty.write(`${bootstrapCommand}\r`);
+    let resuming = false;
+    if (provider === "claude-code" && terminal) {
+      const stored = terminal.conversationId;
+      if (terminal.conversationStarted && isValidConversationId(stored)) {
+        appendDebugLog(session, `bootstrap session=${sessionId} resume=${stored}`);
+        session.pty.write(`claude --resume ${stored}\r`);
+        resuming = true;
+      } else {
+        const startId = isValidConversationId(stored) ? stored : randomUUID();
+        appendDebugLog(session, `bootstrap session=${sessionId} session-id=${startId}`);
+        session.pty.write(`claude --session-id ${startId}\r`);
+        onConversationStarted?.(session.terminalId, startId);
+      }
+    } else {
+      const bootstrapCommand =
+        TERMINAL_BOOTSTRAP_COMMANDS[provider] ??
+        TERMINAL_BOOTSTRAP_COMMANDS[DEFAULT_AGENT_PROVIDER];
+      appendDebugLog(session, `bootstrap session=${sessionId} command=${bootstrapCommand}`);
+      session.pty.write(`${bootstrapCommand}\r`);
+    }
 
     // Schedule initial prompt injection after Claude Code has had time to boot.
-    if (session.initialPrompt && !session.isInitialPromptSent) {
+    if (!resuming && session.initialPrompt && !session.isInitialPromptSent) {
       schedulePromptTimer(
         session,
         sessionId,
@@ -506,7 +528,12 @@ export const createSessionRuntime = ({
       );
     }
 
-    if (session.initialInputDraft && !session.isInitialInputDraftSent && !session.initialPrompt) {
+    if (
+      !resuming &&
+      session.initialInputDraft &&
+      !session.isInitialInputDraftSent &&
+      !session.initialPrompt
+    ) {
       schedulePromptTimer(
         session,
         sessionId,
