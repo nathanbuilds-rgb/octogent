@@ -42,6 +42,16 @@ describe("AddTentacleForm wizard", () => {
     expect(screen.queryByRole("button", { name: /generate/i })).not.toBeInTheDocument();
   });
 
+  it("treats Enter (implicit submit) on step 1 as Next, not create", () => {
+    const onSubmit = vi.fn();
+    renderForm({ onSubmit });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "auth" } });
+    // Pressing Enter in a step-1 field submits the <form>; it must advance, never create.
+    fireEvent.submit(screen.getByLabelText("Name").closest("form") as HTMLFormElement);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /generate/i })).toBeInTheDocument();
+  });
+
   it("submits selected skills and todos through all three steps", () => {
     const onSubmit = vi.fn();
     renderForm({ onSubmit });

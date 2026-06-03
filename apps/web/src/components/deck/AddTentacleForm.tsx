@@ -100,6 +100,13 @@ export const AddTentacleForm = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter inside a step-1/2 field implicitly submits the form; treat that as
+    // "advance the wizard" so it can never short-circuit into creating a bare
+    // tentacle before the todos/tools steps.
+    if (step < 3) {
+      goNext();
+      return;
+    }
     if (name.trim().length === 0) {
       setStep(1);
       return;
