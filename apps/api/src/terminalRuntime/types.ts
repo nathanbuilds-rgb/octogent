@@ -127,6 +127,10 @@ export type PersistedTerminal = {
   createdAt: string;
   workspaceMode: TentacleWorkspaceMode;
   agentProvider?: TerminalAgentProvider;
+  /** Stable Claude conversation id (UUID) used for --session-id / --resume. claude-code only. */
+  conversationId?: string;
+  /** True once the agent has been bootstrapped under conversationId (the cross-session "ran before" signal). */
+  conversationStarted?: boolean;
   initialPrompt?: string;
   initialInputDraft?: string;
   lastActiveAt?: string;

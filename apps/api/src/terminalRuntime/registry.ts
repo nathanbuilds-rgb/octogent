@@ -267,6 +267,8 @@ const parseV3Terminals = (
     if (typeof entry.parentTerminalId === "string")
       terminal.parentTerminalId = entry.parentTerminalId;
     if (isTerminalAgentProvider(entry.agentProvider)) terminal.agentProvider = entry.agentProvider;
+    if (typeof entry.conversationId === "string") terminal.conversationId = entry.conversationId;
+    if (entry.conversationStarted === true) terminal.conversationStarted = true;
     if (typeof entry.initialPrompt === "string") terminal.initialPrompt = entry.initialPrompt;
     if (typeof entry.initialInputDraft === "string") {
       terminal.initialInputDraft = entry.initialInputDraft;
@@ -308,7 +310,7 @@ const parseV3Terminals = (
   return terminals;
 };
 
-const parseRegistryDocument = (
+export const parseRegistryDocument = (
   raw: string,
   registryPath: string,
 ): {
