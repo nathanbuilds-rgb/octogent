@@ -441,6 +441,20 @@ export const DeckPrimaryView = ({
     return () => onSidebarContent?.(null);
   }, [onSidebarContent, sidebarContent]);
 
+  // The wizard is shared by both the empty state (side panel) and the populated
+  // state (overlay) so "Add Tentacle" works whether or not tentacles exist.
+  const addTentacleForm =
+    emptyViewMode === "adding" ? (
+      <AddTentacleForm
+        onSubmit={handleCreateTentacle}
+        onCancel={() => setEmptyViewMode("idle")}
+        onGenerateTodos={handleGenerateTodos}
+        isSubmitting={isCreating}
+        error={createError}
+        availableSkills={availableSkills}
+      />
+    ) : null;
+
   // ─── Empty state (no tentacles) ─────────────────────────────────────────────
 
   if (tentacles.length === 0 && focus?.type !== "terminal") {
@@ -488,18 +502,7 @@ export const DeckPrimaryView = ({
               />
             )}
           </div>
-          {emptyViewMode === "adding" && (
-            <div className="deck-empty-right">
-              <AddTentacleForm
-                onSubmit={handleCreateTentacle}
-                onCancel={() => setEmptyViewMode("idle")}
-                onGenerateTodos={handleGenerateTodos}
-                isSubmitting={isCreating}
-                error={createError}
-                availableSkills={availableSkills}
-              />
-            </div>
-          )}
+          {addTentacleForm && <div className="deck-empty-right">{addTentacleForm}</div>}
         </div>
       </section>
     );
@@ -631,6 +634,11 @@ export const DeckPrimaryView = ({
           </div>
         )}
       </div>
+      {addTentacleForm && (
+        <div className="deck-add-overlay">
+          <div className="deck-add-overlay-panel">{addTentacleForm}</div>
+        </div>
+      )}
     </section>
   );
 };

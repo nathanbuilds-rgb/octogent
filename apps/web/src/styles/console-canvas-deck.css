@@ -298,6 +298,32 @@
 
 /* ─── Add terminal form ──────────────────────────────────────────────────── */
 
+/* Overlay host for the Add Tentacle wizard when the deck already has tentacles. */
+.deck-add-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(5, 7, 10, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.deck-add-overlay-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(540px, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid #2b2f36;
+  border-radius: 10px;
+  background: #0b0d10;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  animation: deck-form-slide-in 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .deck-add-form {
   display: flex;
   flex-direction: column;
