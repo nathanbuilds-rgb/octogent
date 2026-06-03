@@ -1522,3 +1522,87 @@
     align-items: stretch;
   }
 }
+
+/* ─── Todo checklist editor ──────────────────────────────────────────────── */
+
+.deck-todo-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.deck-todo-editor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.deck-todo-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.deck-todo-editor-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  background: #11161d;
+  border: 1px solid #2b2f36;
+  padding: 0.5rem 0.6rem;
+  transition: border-color 0.15s;
+}
+
+.deck-todo-editor-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.deck-todo-editor-remove {
+  font-family: var(--font-main);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: #11161d;
+  border: 1px solid #2b2f36;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.deck-todo-editor-remove:hover {
+  color: #e05555;
+  border-color: #e05555;
+}
+
+.deck-todo-editor-add {
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: transparent;
+  border: 1px dashed #2b2f36;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.deck-todo-editor-add:hover {
+  border-color: var(--accent-primary);
+  background: rgba(250, 163, 44, 0.06);
+}
+
+.deck-todo-editor-empty {
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 0.5rem 0;
+}
