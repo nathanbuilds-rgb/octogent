@@ -424,13 +424,32 @@ export const App = () => {
   }, [createTerminal, refreshColumns, setCanvasActiveShellTabId, setCanvasShellPanelCollapsed]);
 
   const handleCloseShellTab = useCallback(
-    (terminalId: string) => {
-      const tab = terminals.find((terminal) => terminal.terminalId === terminalId);
-      requestDeleteTerminal(terminalId, tab?.tentacleName ?? terminalId, {
-        intent: "close-terminal",
-      });
+    async (terminalId: string) => {
+      // Shell tabs close instantly (VS Code-style) — no confirmation dialog, unlike
+      // agent terminals whose transcript is worth a confirm before discarding.
+      try {
+        const response = await fetch(`/api/terminals/${encodeURIComponent(terminalId)}`, {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          return;
+        }
+        const nextColumns = await refreshColumns();
+        setCanvasActiveShellTabId((current) => {
+          if (current !== terminalId) {
+            return current;
+          }
+          const nextShell = (nextColumns ?? []).find(
+            (terminal) => terminal.kind === "shell" && terminal.terminalId !== terminalId,
+          );
+          return nextShell?.terminalId ?? null;
+        });
+      } catch {
+        // best-effort close
+      }
     },
-    [requestDeleteTerminal, terminals],
+    [refreshColumns, setCanvasActiveShellTabId],
   );
 
   const handleRenameShellTab = useCallback(
