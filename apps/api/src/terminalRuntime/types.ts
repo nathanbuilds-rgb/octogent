@@ -7,9 +7,14 @@ import type {
   TentaclePullRequestSnapshot,
   TentacleWorkspaceMode,
   TerminalAgentProvider,
+  TerminalKind,
   TerminalLifecycleState,
 } from "@octogent/core";
-import { isTerminalAgentProvider, isTerminalCompletionSoundId } from "@octogent/core";
+import {
+  isTerminalAgentProvider,
+  isTerminalCompletionSoundId,
+  isTerminalKind,
+} from "@octogent/core";
 import type { IPty } from "node-pty";
 import type { WebSocket } from "ws";
 
@@ -94,9 +99,11 @@ export {
   type TentaclePullRequestSnapshot,
   type TentacleWorkspaceMode,
   type TerminalAgentProvider,
+  type TerminalKind,
   type TerminalLifecycleState,
   isTerminalAgentProvider,
   isTerminalCompletionSoundId,
+  isTerminalKind,
 };
 
 export type TerminalSessionStartDetails = {
@@ -126,6 +133,7 @@ export type PersistedTerminal = {
   autoRenamePromptContext?: string | undefined;
   createdAt: string;
   workspaceMode: TentacleWorkspaceMode;
+  kind?: TerminalKind;
   agentProvider?: TerminalAgentProvider;
   initialPrompt?: string;
   initialInputDraft?: string;
