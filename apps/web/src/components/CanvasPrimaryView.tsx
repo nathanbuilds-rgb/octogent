@@ -34,6 +34,7 @@ import { CanvasTerminalColumn } from "./canvas/CanvasTerminalColumn";
 import { DeleteAllTerminalsDialog } from "./canvas/DeleteAllTerminalsDialog";
 import { OctopusNode } from "./canvas/OctopusNode";
 import { SessionNode } from "./canvas/SessionNode";
+import { type ShellTab, ShellTerminalPanel } from "./canvas/ShellTerminalPanel";
 import { WorkspaceSetupCard } from "./deck/WorkspaceSetupCard";
 
 type ContextMenuState =
@@ -93,6 +94,14 @@ type CanvasPrimaryViewProps = {
   onTerminalRenamed?: ((terminalId: string, tentacleName: string) => void) | undefined;
   onTerminalActivity?: ((terminalId: string) => void) | undefined;
   onRefreshColumns?: () => Promise<void> | void;
+  shellTabs?: ShellTab[];
+  activeShellTabId?: string | null;
+  shellPanelCollapsed?: boolean;
+  onCreateShellTab?: () => void;
+  onCloseShellTab?: (terminalId: string) => void;
+  onActivateShellTab?: (terminalId: string) => void;
+  onToggleShellPanel?: () => void;
+  onRenameShellTab?: (terminalId: string, label: string) => void;
 };
 
 const CLICK_THRESHOLD = 5;
@@ -224,6 +233,14 @@ export const CanvasPrimaryView = ({
   onTerminalRenamed,
   onTerminalActivity,
   onRefreshColumns,
+  shellTabs,
+  activeShellTabId = null,
+  shellPanelCollapsed = false,
+  onCreateShellTab,
+  onCloseShellTab,
+  onActivateShellTab,
+  onToggleShellPanel,
+  onRenameShellTab,
 }: CanvasPrimaryViewProps) => {
   const runtimeStateStoreRef = useRef<TerminalRuntimeStateStore | null>(null);
   if (runtimeStateStoreRef.current === null) {
@@ -974,578 +991,587 @@ export const CanvasPrimaryView = ({
   }, [onLaunchWorkspaceSetupPlanner]);
 
   return (
-    <section ref={containerRef} className="canvas-view" aria-label="Canvas graph view">
-      <div className={`canvas-graph-panel${hasPanels ? " canvas-graph-panel--split" : ""}`}>
-        <svg
-          aria-label="Canvas graph"
-          ref={svgRef}
-          className={`canvas-svg${isPanning || dragNodeId ? " canvas-svg--panning" : ""}`}
-          onWheel={handleWheel}
-          onPointerDown={handleCanvasPointerDown}
-          onPointerMove={handleSvgPointerMove}
-          onPointerUp={handleSvgPointerUp}
-          onClick={handleSvgClick}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              e.preventDefault();
-              setContextMenu(null);
-              setSelectedNodeId(null);
-              return;
-            }
-            if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
-              e.preventDefault();
-              setSelectedNodeId(null);
-            }
-          }}
-        >
-          <title>Canvas graph</title>
-          <g
-            transform={`translate(${transform.translateX}, ${transform.translateY}) scale(${transform.scale})`}
+    <div className="canvas-view-shell">
+      <section ref={containerRef} className="canvas-view" aria-label="Canvas graph view">
+        <div className={`canvas-graph-panel${hasPanels ? " canvas-graph-panel--split" : ""}`}>
+          <svg
+            aria-label="Canvas graph"
+            ref={svgRef}
+            className={`canvas-svg${isPanning || dragNodeId ? " canvas-svg--panning" : ""}`}
+            onWheel={handleWheel}
+            onPointerDown={handleCanvasPointerDown}
+            onPointerMove={handleSvgPointerMove}
+            onPointerUp={handleSvgPointerUp}
+            onClick={handleSvgClick}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setContextMenu(null);
+                setSelectedNodeId(null);
+                return;
+              }
+              if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+                e.preventDefault();
+                setSelectedNodeId(null);
+              }
+            }}
           >
-            {Array.from(sessionEdgesBySource.entries()).flatMap(([sourceId, group]) =>
-              group.map(({ source, target }, index) => {
-                const active = selectedNodeId === source.id || selectedNodeId === target.id;
+            <title>Canvas graph</title>
+            <g
+              transform={`translate(${transform.translateX}, ${transform.translateY}) scale(${transform.scale})`}
+            >
+              {Array.from(sessionEdgesBySource.entries()).flatMap(([sourceId, group]) =>
+                group.map(({ source, target }, index) => {
+                  const active = selectedNodeId === source.id || selectedNodeId === target.id;
+                  const selectedColor = selectedNodeId
+                    ? (nodesById.get(selectedNodeId)?.color ?? null)
+                    : null;
+                  const path = buildCanvasEdgePath(source, target, index, group.length);
+
+                  return (
+                    <g key={`${sourceId}->${target.id}`}>
+                      <path
+                        className="canvas-edge"
+                        d={path}
+                        fill="none"
+                        stroke={active ? (selectedColor ?? source.color) : "#C0C0C0"}
+                        strokeWidth={active ? 2 : 1.5}
+                        strokeOpacity={1}
+                      />
+                      {isEdgeActivityVisible(target)
+                        ? renderEdgeActivityDots(
+                            path,
+                            active ? (selectedColor ?? source.color) : source.color,
+                            `${sourceId}->${target.id}`,
+                          )
+                        : null}
+                    </g>
+                  );
+                }),
+              )}
+
+              {/* Render tentacle nodes (with arms) first */}
+              {tentacleNodes.map((node) => {
+                const connected = edges
+                  .filter((e) => e.source === node.id)
+                  .map((e) => nodesById.get(e.target))
+                  .filter((n): n is GraphNode => {
+                    if (!n) return false;
+                    if (hideIdleTerminals && n.type === "inactive-session") return false;
+                    if (
+                      hideIdleTerminals &&
+                      n.type === "active-session" &&
+                      (n.agentState === "idle" || n.hasUserPrompt === false)
+                    )
+                      return false;
+                    return true;
+                  });
+
                 const selectedColor = selectedNodeId
                   ? (nodesById.get(selectedNodeId)?.color ?? null)
                   : null;
-                const path = buildCanvasEdgePath(source, target, index, group.length);
 
                 return (
-                  <g key={`${sourceId}->${target.id}`}>
-                    <path
-                      className="canvas-edge"
-                      d={path}
-                      fill="none"
-                      stroke={active ? (selectedColor ?? source.color) : "#C0C0C0"}
-                      strokeWidth={active ? 2 : 1.5}
-                      strokeOpacity={1}
-                    />
-                    {isEdgeActivityVisible(target)
-                      ? renderEdgeActivityDots(
-                          path,
-                          active ? (selectedColor ?? source.color) : source.color,
-                          `${sourceId}->${target.id}`,
-                        )
-                      : null}
-                  </g>
+                  <OctopusNode
+                    key={node.id}
+                    node={node}
+                    connectedNodes={connected}
+                    isSelected={selectedNodeId === node.id}
+                    selectedNodeId={selectedNodeId}
+                    selectedNodeColor={selectedColor}
+                    onPointerDown={handleNodePointerDown}
+                    onClick={handleNodeClick}
+                  />
                 );
-              }),
-            )}
+              })}
 
-            {/* Render tentacle nodes (with arms) first */}
-            {tentacleNodes.map((node) => {
-              const connected = edges
-                .filter((e) => e.source === node.id)
-                .map((e) => nodesById.get(e.target))
-                .filter((n): n is GraphNode => {
-                  if (!n) return false;
-                  if (hideIdleTerminals && n.type === "inactive-session") return false;
-                  if (
-                    hideIdleTerminals &&
-                    n.type === "active-session" &&
-                    (n.agentState === "idle" || n.hasUserPrompt === false)
-                  )
-                    return false;
-                  return true;
-                });
-
-              const selectedColor = selectedNodeId
-                ? (nodesById.get(selectedNodeId)?.color ?? null)
-                : null;
-
-              return (
-                <OctopusNode
+              {/* Render session nodes on top */}
+              {sessionNodes.map((node) => (
+                <SessionNode
                   key={node.id}
                   node={node}
-                  connectedNodes={connected}
                   isSelected={selectedNodeId === node.id}
-                  selectedNodeId={selectedNodeId}
-                  selectedNodeColor={selectedColor}
                   onPointerDown={handleNodePointerDown}
                   onClick={handleNodeClick}
                 />
-              );
-            })}
+              ))}
+            </g>
+          </svg>
 
-            {/* Render session nodes on top */}
-            {sessionNodes.map((node) => (
-              <SessionNode
-                key={node.id}
-                node={node}
-                isSelected={selectedNodeId === node.id}
-                onPointerDown={handleNodePointerDown}
-                onClick={handleNodeClick}
+          {/* Canvas toolbar — top-left action buttons */}
+          <div className="canvas-toolbar" role="toolbar" aria-label="Canvas actions">
+            <button
+              type="button"
+              className="canvas-toolbar-btn"
+              onClick={() => {
+                onCreateShellTab?.();
+              }}
+            >
+              <span className="canvas-toolbar-icon">
+                <TerminalIcon size={14} />
+              </span>
+              <span className="canvas-toolbar-label">Terminal</span>
+            </button>
+            <button
+              type="button"
+              className="canvas-toolbar-btn"
+              onClick={() => {
+                const result = onCreateWorktreeTerminal?.();
+                if (result && typeof result.then === "function") {
+                  void result.then((agentId) => {
+                    if (agentId) setPendingOpenAgentId(agentId);
+                  });
+                }
+              }}
+            >
+              <span className="canvas-toolbar-icon">
+                <GitBranch size={14} />
+              </span>
+              <span className="canvas-toolbar-label">Worktree</span>
+            </button>
+            <button type="button" className="canvas-toolbar-btn" onClick={onCreateTentacle}>
+              <span className="canvas-toolbar-icon">
+                <Hexagon size={14} />
+              </span>
+              <span className="canvas-toolbar-label">Tentacle</span>
+            </button>
+            <div className="canvas-toolbar-separator" />
+            <button type="button" className="canvas-toolbar-btn" onClick={handleFitView}>
+              <span className="canvas-toolbar-icon">
+                <Maximize size={14} />
+              </span>
+              <span className="canvas-toolbar-label">Fit</span>
+            </button>
+            <button type="button" className="canvas-toolbar-btn" onClick={handleRefresh}>
+              <span className="canvas-toolbar-icon">
+                <RefreshCw size={14} />
+              </span>
+              <span className="canvas-toolbar-label">Refresh</span>
+            </button>
+            <div className="canvas-toolbar-separator" />
+            <button
+              type="button"
+              className={`canvas-toolbar-btn${hideIdleTerminals ? " canvas-toolbar-btn--active" : ""}`}
+              onClick={() => setHideIdleTerminals((prev) => !prev)}
+            >
+              <span className="canvas-toolbar-icon">
+                {hideIdleTerminals ? <Play size={14} /> : <Pause size={14} />}
+              </span>
+              <span className="canvas-toolbar-label">
+                {hideIdleTerminals ? "Show Idle" : "Hide Idle"}
+              </span>
+            </button>
+            <div className="canvas-toolbar-separator" />
+            <button
+              type="button"
+              className="canvas-toolbar-btn canvas-toolbar-btn--danger"
+              onClick={() => setIsDeleteAllDialogOpen(true)}
+            >
+              <span className="canvas-toolbar-icon">
+                <Trash2 size={14} />
+              </span>
+              <span className="canvas-toolbar-label">Delete All</span>
+            </button>
+          </div>
+
+          {/* Waiting notifications — compact bars below the toolbar */}
+          {waitingNodes.length > 0 && (
+            <div className="canvas-waiting-list">
+              {waitingNodes.map((node) => {
+                const nameRaw = node.label;
+                const name = nameRaw.length > 20 ? `${nameRaw.slice(0, 20)}…` : nameRaw;
+                const prefix =
+                  node.agentRuntimeState === "waiting_for_permission"
+                    ? `${node.waitingToolName ?? "Permission"}: `
+                    : "Waiting: ";
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    className="canvas-waiting-bar"
+                    onClick={() => handleNodeClick(node.id)}
+                  >
+                    <span className="canvas-waiting-bar-name">
+                      <span className="canvas-waiting-bar-prefix">{prefix}</span>
+                      {name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {shouldShowWorkspaceSetupCard && (
+            <div className="canvas-setup-overlay">
+              <WorkspaceSetupCard
+                workspaceSetup={workspaceSetup}
+                isLoading={isWorkspaceSetupLoading}
+                error={workspaceSetupError}
+                onRunStep={(stepId) => {
+                  void onRunWorkspaceSetupStep?.(stepId);
+                }}
+                onLaunchClaudeCode={() => {
+                  void handleLaunchWorkspaceSetupPlanner();
+                }}
+                isLaunchingAgent={isLaunchingWorkspaceSetupPlanner}
+                isRunningStepId={runningWorkspaceSetupStepId}
               />
-            ))}
-          </g>
-        </svg>
-
-        {/* Canvas toolbar — top-left action buttons */}
-        <div className="canvas-toolbar" role="toolbar" aria-label="Canvas actions">
-          <button
-            type="button"
-            className="canvas-toolbar-btn"
-            onClick={() => {
-              const result = onCreateTerminal?.();
-              if (result && typeof result.then === "function") {
-                void result.then((agentId) => {
-                  if (agentId) setPendingOpenAgentId(agentId);
-                });
-              }
-            }}
-          >
-            <span className="canvas-toolbar-icon">
-              <TerminalIcon size={14} />
-            </span>
-            <span className="canvas-toolbar-label">Terminal</span>
-          </button>
-          <button
-            type="button"
-            className="canvas-toolbar-btn"
-            onClick={() => {
-              const result = onCreateWorktreeTerminal?.();
-              if (result && typeof result.then === "function") {
-                void result.then((agentId) => {
-                  if (agentId) setPendingOpenAgentId(agentId);
-                });
-              }
-            }}
-          >
-            <span className="canvas-toolbar-icon">
-              <GitBranch size={14} />
-            </span>
-            <span className="canvas-toolbar-label">Worktree</span>
-          </button>
-          <button type="button" className="canvas-toolbar-btn" onClick={onCreateTentacle}>
-            <span className="canvas-toolbar-icon">
-              <Hexagon size={14} />
-            </span>
-            <span className="canvas-toolbar-label">Tentacle</span>
-          </button>
-          <div className="canvas-toolbar-separator" />
-          <button type="button" className="canvas-toolbar-btn" onClick={handleFitView}>
-            <span className="canvas-toolbar-icon">
-              <Maximize size={14} />
-            </span>
-            <span className="canvas-toolbar-label">Fit</span>
-          </button>
-          <button type="button" className="canvas-toolbar-btn" onClick={handleRefresh}>
-            <span className="canvas-toolbar-icon">
-              <RefreshCw size={14} />
-            </span>
-            <span className="canvas-toolbar-label">Refresh</span>
-          </button>
-          <div className="canvas-toolbar-separator" />
-          <button
-            type="button"
-            className={`canvas-toolbar-btn${hideIdleTerminals ? " canvas-toolbar-btn--active" : ""}`}
-            onClick={() => setHideIdleTerminals((prev) => !prev)}
-          >
-            <span className="canvas-toolbar-icon">
-              {hideIdleTerminals ? <Play size={14} /> : <Pause size={14} />}
-            </span>
-            <span className="canvas-toolbar-label">
-              {hideIdleTerminals ? "Show Idle" : "Hide Idle"}
-            </span>
-          </button>
-          <div className="canvas-toolbar-separator" />
-          <button
-            type="button"
-            className="canvas-toolbar-btn canvas-toolbar-btn--danger"
-            onClick={() => setIsDeleteAllDialogOpen(true)}
-          >
-            <span className="canvas-toolbar-icon">
-              <Trash2 size={14} />
-            </span>
-            <span className="canvas-toolbar-label">Delete All</span>
-          </button>
+            </div>
+          )}
         </div>
 
-        {/* Waiting notifications — compact bars below the toolbar */}
-        {waitingNodes.length > 0 && (
-          <div className="canvas-waiting-list">
-            {waitingNodes.map((node) => {
-              const nameRaw = node.label;
-              const name = nameRaw.length > 20 ? `${nameRaw.slice(0, 20)}…` : nameRaw;
-              const prefix =
-                node.agentRuntimeState === "waiting_for_permission"
-                  ? `${node.waitingToolName ?? "Permission"}: `
-                  : "Waiting: ";
-              return (
-                <button
-                  key={node.id}
-                  type="button"
-                  className="canvas-waiting-bar"
-                  onClick={() => handleNodeClick(node.id)}
-                >
-                  <span className="canvas-waiting-bar-name">
-                    <span className="canvas-waiting-bar-prefix">{prefix}</span>
-                    {name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        {hasPanels && (
+          <>
+            <div
+              className="canvas-panel-divider"
+              role="separator"
+              aria-orientation="vertical"
+              tabIndex={0}
+              onPointerDown={handleDividerPointerDown}
+              onPointerMove={handleDividerPointerMove}
+              onPointerUp={handleDividerPointerUp}
+            />
+            <div
+              ref={terminalsPanelRef}
+              className="canvas-terminals-panel"
+              style={
+                terminalsPanelWidth != null ? { flex: `0 0 ${terminalsPanelWidth}px` } : undefined
+              }
+            >
+              {Array.from(openTentacles.entries()).map(([nodeId, node]) => (
+                <CanvasTentaclePanel
+                  key={nodeId}
+                  node={node}
+                  isFocused={selectedNodeId === nodeId}
+                  panelRef={setPanelRef(nodeId)}
+                  tentacle={tentacleById.get(node.tentacleId) ?? null}
+                  sessions={sessionsByTentacleId.get(node.tentacleId) ?? []}
+                  onClose={() => handleCloseTentacle(nodeId)}
+                  onFocus={() => setSelectedNodeId(nodeId)}
+                  onCreateAgent={(tentacleId) => {
+                    handleCreateAgent(tentacleId);
+                  }}
+                  onSolveTodoItem={(tentacleId, itemIndex) => {
+                    void onSolveTodoItem?.(tentacleId, itemIndex);
+                  }}
+                  onSpawnSwarm={(tentacleId, workspaceMode) => {
+                    handleSpawnSwarm(tentacleId, workspaceMode);
+                  }}
+                  onNavigateToConversation={onNavigateToConversation}
+                  onRefreshTentacleData={refreshDeckTentacles}
+                />
+              ))}
+              {isHydratingTerminals && openTerminals.size === 0 && (
+                <div className="canvas-terminal-skeleton">
+                  <div className="canvas-terminal-skeleton__header" />
+                  <div className="canvas-terminal-skeleton__body">
+                    <div className="canvas-terminal-skeleton__line" style={{ width: "60%" }} />
+                    <div className="canvas-terminal-skeleton__line" style={{ width: "80%" }} />
+                    <div className="canvas-terminal-skeleton__line" style={{ width: "45%" }} />
+                  </div>
+                </div>
+              )}
+              {Array.from(openTerminals.entries()).map(([nodeId, node]) => (
+                <CanvasTerminalColumn
+                  key={nodeId}
+                  node={node}
+                  terminals={columns}
+                  layoutVersion={terminalLayoutVersion}
+                  isFocused={selectedNodeId === nodeId}
+                  panelRef={setPanelRef(nodeId)}
+                  onMinimize={() => handleMinimizeTerminal(nodeId)}
+                  onClose={() => handleCloseTerminal(node)}
+                  onFocus={() => setSelectedNodeId(nodeId)}
+                  onTerminalRenamed={onTerminalRenamed}
+                  onTerminalActivity={onTerminalActivity}
+                />
+              ))}
+            </div>
+          </>
         )}
 
-        {shouldShowWorkspaceSetupCard && (
-          <div className="canvas-setup-overlay">
-            <WorkspaceSetupCard
-              workspaceSetup={workspaceSetup}
-              isLoading={isWorkspaceSetupLoading}
-              error={workspaceSetupError}
-              onRunStep={(stepId) => {
-                void onRunWorkspaceSetupStep?.(stepId);
+        {/* Context menu */}
+        {contextMenu && (
+          <>
+            <div
+              aria-label="Close canvas context menu"
+              className="canvas-context-menu-backdrop"
+              onClick={() => setContextMenu(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Close current menu, then re-derive what's under the cursor on the SVG
+                setContextMenu(null);
+                // Use rAF so the backdrop is removed before we probe elementFromPoint
+                requestAnimationFrame(() => {
+                  const under = document.elementFromPoint(e.clientX, e.clientY);
+                  if (under) {
+                    under.dispatchEvent(
+                      new MouseEvent("contextmenu", {
+                        bubbles: true,
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                      }),
+                    );
+                  }
+                });
               }}
-              onLaunchClaudeCode={() => {
-                void handleLaunchWorkspaceSetupPlanner();
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " " && e.key !== "Escape") return;
+                e.preventDefault();
+                setContextMenu(null);
               }}
-              isLaunchingAgent={isLaunchingWorkspaceSetupPlanner}
-              isRunningStepId={runningWorkspaceSetupStepId}
+              role="button"
+              tabIndex={0}
+            />
+            <div
+              className="canvas-context-menu"
+              style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu(null);
+                requestAnimationFrame(() => {
+                  const under = document.elementFromPoint(e.clientX, e.clientY);
+                  if (under) {
+                    under.dispatchEvent(
+                      new MouseEvent("contextmenu", {
+                        bubbles: true,
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                      }),
+                    );
+                  }
+                });
+              }}
+            >
+              {contextMenu.kind === "canvas" && (
+                <>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => {
+                      setContextMenu(null);
+                      onCreateTentacle?.();
+                    }}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <Hexagon size={14} />
+                    </span>
+                    New Tentacle
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => {
+                      setContextMenu(null);
+                      const result = onCreateTerminal?.();
+                      if (result && typeof result.then === "function") {
+                        void result.then((agentId) => {
+                          if (agentId) setPendingOpenAgentId(agentId);
+                        });
+                      }
+                    }}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <TerminalIcon size={14} />
+                    </span>
+                    New Terminal
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => {
+                      setContextMenu(null);
+                      const result = onCreateWorktreeTerminal?.();
+                      if (result && typeof result.then === "function") {
+                        void result.then((agentId) => {
+                          if (agentId) setPendingOpenAgentId(agentId);
+                        });
+                      }
+                    }}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <GitBranch size={14} />
+                    </span>
+                    New Worktree Terminal
+                  </button>
+                </>
+              )}
+              {contextMenu.kind === "tentacle" && (
+                <>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => handleCreateAgent(contextMenu.tentacleId)}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <TerminalIcon size={14} />
+                    </span>
+                    Create new agent
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => {
+                      setContextMenu(null);
+                      const result = onCreateWorktreeTerminal?.();
+                      if (result && typeof result.then === "function") {
+                        void result.then((agentId) => {
+                          if (agentId) setPendingOpenAgentId(agentId);
+                        });
+                      }
+                    }}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <GitBranch size={14} />
+                    </span>
+                    New Worktree Terminal
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() =>
+                      handleTentacleAction(contextMenu.tentacleId, "tentacle-reorganize-todos")
+                    }
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <ListTodo size={14} />
+                    </span>
+                    Update To-Do List
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() =>
+                      handleTentacleAction(contextMenu.tentacleId, "tentacle-update-tentacle")
+                    }
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <Hexagon size={14} />
+                    </span>
+                    Update Tentacle
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => handleSpawnSwarm(contextMenu.tentacleId, "worktree")}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <Layers size={14} />
+                    </span>
+                    Spawn Swarm (Worktrees)
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => handleSpawnSwarm(contextMenu.tentacleId, "shared")}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <Layers size={14} />
+                    </span>
+                    Spawn Swarm (Normal)
+                  </button>
+                </>
+              )}
+              {contextMenu.kind === "octoboss" && (
+                <>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => handleOctobossAction("octoboss-reorganize-todos")}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <ListTodo size={14} />
+                    </span>
+                    Reorganize To-Do's
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => handleOctobossAction("octoboss-reorganize-tentacles")}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <Hexagon size={14} />
+                    </span>
+                    Reorganize Tentacles
+                  </button>
+                  <button
+                    type="button"
+                    className="canvas-context-menu-item"
+                    onClick={() => handleOctobossAction("octoboss-clean-contexts")}
+                  >
+                    <span className="canvas-context-menu-icon">
+                      <Sparkles size={14} />
+                    </span>
+                    Clean Tentacle Contexts
+                  </button>
+                </>
+              )}
+              {contextMenu.kind === "active-session" && (
+                <button
+                  type="button"
+                  className="canvas-context-menu-item canvas-context-menu-item--danger"
+                  onClick={() => {
+                    onDeleteActiveSession?.(
+                      contextMenu.sessionId,
+                      contextMenu.label,
+                      contextMenu.workspaceMode,
+                    );
+                    setContextMenu(null);
+                  }}
+                >
+                  <span className="canvas-context-menu-icon">
+                    <Trash2 size={14} />
+                  </span>
+                  Delete
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {pendingDeleteTerminal && onCancelDelete && onConfirmDelete && (
+          <div className="canvas-delete-dialog">
+            <DeleteTentacleDialog
+              pendingDeleteTerminal={pendingDeleteTerminal}
+              isDeletingTerminalId={isDeletingTerminalId ?? null}
+              onCancel={onCancelDelete}
+              onConfirmDelete={onConfirmDelete}
             />
           </div>
         )}
-      </div>
 
-      {hasPanels && (
-        <>
-          <div
-            className="canvas-panel-divider"
-            role="separator"
-            aria-orientation="vertical"
-            tabIndex={0}
-            onPointerDown={handleDividerPointerDown}
-            onPointerMove={handleDividerPointerMove}
-            onPointerUp={handleDividerPointerUp}
-          />
-          <div
-            ref={terminalsPanelRef}
-            className="canvas-terminals-panel"
-            style={
-              terminalsPanelWidth != null ? { flex: `0 0 ${terminalsPanelWidth}px` } : undefined
-            }
-          >
-            {Array.from(openTentacles.entries()).map(([nodeId, node]) => (
-              <CanvasTentaclePanel
-                key={nodeId}
-                node={node}
-                isFocused={selectedNodeId === nodeId}
-                panelRef={setPanelRef(nodeId)}
-                tentacle={tentacleById.get(node.tentacleId) ?? null}
-                sessions={sessionsByTentacleId.get(node.tentacleId) ?? []}
-                onClose={() => handleCloseTentacle(nodeId)}
-                onFocus={() => setSelectedNodeId(nodeId)}
-                onCreateAgent={(tentacleId) => {
-                  handleCreateAgent(tentacleId);
-                }}
-                onSolveTodoItem={(tentacleId, itemIndex) => {
-                  void onSolveTodoItem?.(tentacleId, itemIndex);
-                }}
-                onSpawnSwarm={(tentacleId, workspaceMode) => {
-                  handleSpawnSwarm(tentacleId, workspaceMode);
-                }}
-                onNavigateToConversation={onNavigateToConversation}
-                onRefreshTentacleData={refreshDeckTentacles}
-              />
-            ))}
-            {isHydratingTerminals && openTerminals.size === 0 && (
-              <div className="canvas-terminal-skeleton">
-                <div className="canvas-terminal-skeleton__header" />
-                <div className="canvas-terminal-skeleton__body">
-                  <div className="canvas-terminal-skeleton__line" style={{ width: "60%" }} />
-                  <div className="canvas-terminal-skeleton__line" style={{ width: "80%" }} />
-                  <div className="canvas-terminal-skeleton__line" style={{ width: "45%" }} />
-                </div>
-              </div>
-            )}
-            {Array.from(openTerminals.entries()).map(([nodeId, node]) => (
-              <CanvasTerminalColumn
-                key={nodeId}
-                node={node}
-                terminals={columns}
-                layoutVersion={terminalLayoutVersion}
-                isFocused={selectedNodeId === nodeId}
-                panelRef={setPanelRef(nodeId)}
-                onMinimize={() => handleMinimizeTerminal(nodeId)}
-                onClose={() => handleCloseTerminal(node)}
-                onFocus={() => setSelectedNodeId(nodeId)}
-                onTerminalRenamed={onTerminalRenamed}
-                onTerminalActivity={onTerminalActivity}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Context menu */}
-      {contextMenu && (
-        <>
-          <div
-            aria-label="Close canvas context menu"
-            className="canvas-context-menu-backdrop"
-            onClick={() => setContextMenu(null)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Close current menu, then re-derive what's under the cursor on the SVG
-              setContextMenu(null);
-              // Use rAF so the backdrop is removed before we probe elementFromPoint
-              requestAnimationFrame(() => {
-                const under = document.elementFromPoint(e.clientX, e.clientY);
-                if (under) {
-                  under.dispatchEvent(
-                    new MouseEvent("contextmenu", {
-                      bubbles: true,
-                      clientX: e.clientX,
-                      clientY: e.clientY,
-                    }),
-                  );
+        {isDeleteAllDialogOpen && (
+          <div className="canvas-delete-dialog">
+            <DeleteAllTerminalsDialog
+              columns={columns}
+              nodes={nodes}
+              onCancel={() => setIsDeleteAllDialogOpen(false)}
+              onDeleted={({ hadFailures }) => {
+                if (!hadFailures) {
+                  setIsDeleteAllDialogOpen(false);
                 }
-              });
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" && e.key !== " " && e.key !== "Escape") return;
-              e.preventDefault();
-              setContextMenu(null);
-            }}
-            role="button"
-            tabIndex={0}
-          />
-          <div
-            className="canvas-context-menu"
-            style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu(null);
-              requestAnimationFrame(() => {
-                const under = document.elementFromPoint(e.clientX, e.clientY);
-                if (under) {
-                  under.dispatchEvent(
-                    new MouseEvent("contextmenu", {
-                      bubbles: true,
-                      clientX: e.clientX,
-                      clientY: e.clientY,
-                    }),
-                  );
-                }
-              });
-            }}
-          >
-            {contextMenu.kind === "canvas" && (
-              <>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => {
-                    setContextMenu(null);
-                    onCreateTentacle?.();
-                  }}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <Hexagon size={14} />
-                  </span>
-                  New Tentacle
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => {
-                    setContextMenu(null);
-                    const result = onCreateTerminal?.();
-                    if (result && typeof result.then === "function") {
-                      void result.then((agentId) => {
-                        if (agentId) setPendingOpenAgentId(agentId);
-                      });
-                    }
-                  }}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <TerminalIcon size={14} />
-                  </span>
-                  New Terminal
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => {
-                    setContextMenu(null);
-                    const result = onCreateWorktreeTerminal?.();
-                    if (result && typeof result.then === "function") {
-                      void result.then((agentId) => {
-                        if (agentId) setPendingOpenAgentId(agentId);
-                      });
-                    }
-                  }}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <GitBranch size={14} />
-                  </span>
-                  New Worktree Terminal
-                </button>
-              </>
-            )}
-            {contextMenu.kind === "tentacle" && (
-              <>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => handleCreateAgent(contextMenu.tentacleId)}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <TerminalIcon size={14} />
-                  </span>
-                  Create new agent
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => {
-                    setContextMenu(null);
-                    const result = onCreateWorktreeTerminal?.();
-                    if (result && typeof result.then === "function") {
-                      void result.then((agentId) => {
-                        if (agentId) setPendingOpenAgentId(agentId);
-                      });
-                    }
-                  }}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <GitBranch size={14} />
-                  </span>
-                  New Worktree Terminal
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() =>
-                    handleTentacleAction(contextMenu.tentacleId, "tentacle-reorganize-todos")
-                  }
-                >
-                  <span className="canvas-context-menu-icon">
-                    <ListTodo size={14} />
-                  </span>
-                  Update To-Do List
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() =>
-                    handleTentacleAction(contextMenu.tentacleId, "tentacle-update-tentacle")
-                  }
-                >
-                  <span className="canvas-context-menu-icon">
-                    <Hexagon size={14} />
-                  </span>
-                  Update Tentacle
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => handleSpawnSwarm(contextMenu.tentacleId, "worktree")}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <Layers size={14} />
-                  </span>
-                  Spawn Swarm (Worktrees)
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => handleSpawnSwarm(contextMenu.tentacleId, "shared")}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <Layers size={14} />
-                  </span>
-                  Spawn Swarm (Normal)
-                </button>
-              </>
-            )}
-            {contextMenu.kind === "octoboss" && (
-              <>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => handleOctobossAction("octoboss-reorganize-todos")}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <ListTodo size={14} />
-                  </span>
-                  Reorganize To-Do's
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => handleOctobossAction("octoboss-reorganize-tentacles")}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <Hexagon size={14} />
-                  </span>
-                  Reorganize Tentacles
-                </button>
-                <button
-                  type="button"
-                  className="canvas-context-menu-item"
-                  onClick={() => handleOctobossAction("octoboss-clean-contexts")}
-                >
-                  <span className="canvas-context-menu-icon">
-                    <Sparkles size={14} />
-                  </span>
-                  Clean Tentacle Contexts
-                </button>
-              </>
-            )}
-            {contextMenu.kind === "active-session" && (
-              <button
-                type="button"
-                className="canvas-context-menu-item canvas-context-menu-item--danger"
-                onClick={() => {
-                  onDeleteActiveSession?.(
-                    contextMenu.sessionId,
-                    contextMenu.label,
-                    contextMenu.workspaceMode,
-                  );
-                  setContextMenu(null);
-                }}
-              >
-                <span className="canvas-context-menu-icon">
-                  <Trash2 size={14} />
-                </span>
-                Delete
-              </button>
-            )}
+                setOpenTerminals(new Map());
+                void onRefreshColumns?.();
+                refreshGraphData();
+              }}
+            />
           </div>
-        </>
+        )}
+      </section>
+      {shellTabs && shellTabs.length > 0 && (
+        <ShellTerminalPanel
+          tabs={shellTabs}
+          activeTabId={activeShellTabId}
+          collapsed={shellPanelCollapsed}
+          onActivate={(terminalId) => onActivateShellTab?.(terminalId)}
+          onNewTab={() => onCreateShellTab?.()}
+          onCloseTab={(terminalId) => onCloseShellTab?.(terminalId)}
+          onToggleCollapsed={() => onToggleShellPanel?.()}
+          onRenameTab={onRenameShellTab}
+        />
       )}
-
-      {pendingDeleteTerminal && onCancelDelete && onConfirmDelete && (
-        <div className="canvas-delete-dialog">
-          <DeleteTentacleDialog
-            pendingDeleteTerminal={pendingDeleteTerminal}
-            isDeletingTerminalId={isDeletingTerminalId ?? null}
-            onCancel={onCancelDelete}
-            onConfirmDelete={onConfirmDelete}
-          />
-        </div>
-      )}
-
-      {isDeleteAllDialogOpen && (
-        <div className="canvas-delete-dialog">
-          <DeleteAllTerminalsDialog
-            columns={columns}
-            nodes={nodes}
-            onCancel={() => setIsDeleteAllDialogOpen(false)}
-            onDeleted={({ hadFailures }) => {
-              if (!hadFailures) {
-                setIsDeleteAllDialogOpen(false);
-              }
-              setOpenTerminals(new Map());
-              void onRefreshColumns?.();
-              refreshGraphData();
-            }}
-          />
-        </div>
-      )}
-    </section>
+    </div>
   );
 };
