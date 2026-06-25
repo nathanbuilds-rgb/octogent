@@ -472,6 +472,10 @@ export const createSessionRuntime = ({
 
     session.isBootstrapCommandSent = true;
     const terminal = terminals.get(session.terminalId);
+    if (terminal?.kind === "shell") {
+      appendDebugLog(session, `bootstrap session=${sessionId} kind=shell (no agent)`);
+      return;
+    }
     const provider = terminal?.agentProvider ?? DEFAULT_AGENT_PROVIDER;
 
     const bootstrapCommand =
