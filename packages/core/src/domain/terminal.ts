@@ -1,4 +1,4 @@
-import type { AgentRuntimeState } from "./agentRuntime";
+import type { AgentRuntimeState, TerminalKind } from "./agentRuntime";
 
 export type AgentState = "live" | "idle" | "queued" | "blocked" | "stopped" | "exited" | "stale";
 export type TerminalLifecycleState = "registered" | "running" | "stopped" | "exited" | "stale";
@@ -10,6 +10,7 @@ export type TerminalSnapshot = {
   state: AgentState;
   tentacleId: string;
   tentacleName?: string;
+  kind?: TerminalKind;
   workspaceMode?: TentacleWorkspaceMode;
   createdAt: string;
   hasUserPrompt?: boolean;

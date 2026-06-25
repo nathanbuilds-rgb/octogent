@@ -336,6 +336,7 @@ export const createTerminalRuntime = ({
       state: lifecycleStateToAgentState(lifecycleState),
       tentacleId: terminal.tentacleId,
       tentacleName: terminal.tentacleName,
+      ...(terminal.kind ? { kind: terminal.kind } : {}),
       workspaceMode: terminal.workspaceMode,
       createdAt: terminal.createdAt,
       hasUserPrompt: isTerminalRecentlyActive(terminal),

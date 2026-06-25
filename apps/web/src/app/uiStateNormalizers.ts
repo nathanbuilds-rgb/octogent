@@ -102,6 +102,20 @@ export const normalizeFrontendUiStateSnapshot = (
     );
   }
 
+  if (Array.isArray(record.canvasOpenShellTabIds)) {
+    nextState.canvasOpenShellTabIds = record.canvasOpenShellTabIds.filter(
+      (id): id is string => typeof id === "string",
+    );
+  }
+
+  if (typeof record.canvasActiveShellTabId === "string" || record.canvasActiveShellTabId === null) {
+    nextState.canvasActiveShellTabId = record.canvasActiveShellTabId;
+  }
+
+  if (typeof record.canvasShellPanelCollapsed === "boolean") {
+    nextState.canvasShellPanelCollapsed = record.canvasShellPanelCollapsed;
+  }
+
   if (
     typeof record.canvasTerminalsPanelWidth === "number" &&
     Number.isFinite(record.canvasTerminalsPanelWidth)

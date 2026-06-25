@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
+import type { TerminalKind } from "@octogent/core";
+
 import type { TerminalAgentProvider, TerminalView, TerminalWorkspaceMode } from "../types";
 
 export type PendingDeleteTerminal = {
@@ -31,6 +33,7 @@ type UseTerminalMutationsResult = {
     workspaceMode: TerminalWorkspaceMode,
     agentProvider?: TerminalAgentProvider,
     tentacleId?: string,
+    kind?: TerminalKind,
   ) => Promise<string | undefined>;
   requestDeleteTerminal: (
     terminalId: string,
@@ -118,6 +121,7 @@ export const useTerminalMutations = ({
       workspaceMode: TerminalWorkspaceMode,
       agentProvider?: TerminalAgentProvider,
       tentacleId?: string,
+      kind?: TerminalKind,
     ) => {
       try {
         setIsCreatingTerminal(true);
@@ -132,6 +136,7 @@ export const useTerminalMutations = ({
             workspaceMode,
             agentProvider: agentProvider ?? "claude-code",
             ...(tentacleId ? { tentacleId } : {}),
+            ...(kind ? { kind } : {}),
           }),
         });
 

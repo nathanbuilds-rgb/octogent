@@ -30,6 +30,9 @@ const DEFAULT_MINIMIZED_TERMINAL_IDS: string[] = [];
 const DEFAULT_TERMINAL_WIDTHS: Record<string, number> = {};
 const DEFAULT_CANVAS_OPEN_TERMINAL_IDS: string[] = [];
 const DEFAULT_CANVAS_OPEN_TENTACLE_IDS: string[] = [];
+const DEFAULT_CANVAS_OPEN_SHELL_TAB_IDS: string[] = [];
+const DEFAULT_CANVAS_ACTIVE_SHELL_TAB_ID: string | null = null;
+const DEFAULT_CANVAS_SHELL_PANEL_COLLAPSED = true;
 
 const areStringArraysEqual = (left: string[] | undefined, right: string[] | undefined) => {
   if (left === right) {
@@ -79,6 +82,9 @@ const buildPersistedUiStateSnapshot = ({
   terminalWidths,
   canvasOpenTerminalIds,
   canvasOpenTentacleIds,
+  canvasOpenShellTabIds,
+  canvasActiveShellTabId,
+  canvasShellPanelCollapsed,
   canvasTerminalsPanelWidth,
 }: {
   activePrimaryNav: PrimaryNavIndex;
@@ -97,6 +103,9 @@ const buildPersistedUiStateSnapshot = ({
   terminalWidths: Record<string, number>;
   canvasOpenTerminalIds: string[];
   canvasOpenTentacleIds: string[];
+  canvasOpenShellTabIds: string[];
+  canvasActiveShellTabId: string | null;
+  canvasShellPanelCollapsed: boolean;
   canvasTerminalsPanelWidth: number | null;
 }): FrontendUiStateSnapshot => ({
   activePrimaryNav,
@@ -115,6 +124,9 @@ const buildPersistedUiStateSnapshot = ({
   terminalWidths,
   canvasOpenTerminalIds,
   canvasOpenTentacleIds,
+  canvasOpenShellTabIds,
+  canvasActiveShellTabId,
+  canvasShellPanelCollapsed,
   ...(canvasTerminalsPanelWidth != null ? { canvasTerminalsPanelWidth } : {}),
 });
 
@@ -139,6 +151,9 @@ const areUiStateSnapshotsEqual = (
   areNumberRecordMapsEqual(left.terminalWidths, right.terminalWidths) &&
   areStringArraysEqual(left.canvasOpenTerminalIds, right.canvasOpenTerminalIds) &&
   areStringArraysEqual(left.canvasOpenTentacleIds, right.canvasOpenTentacleIds) &&
+  areStringArraysEqual(left.canvasOpenShellTabIds, right.canvasOpenShellTabIds) &&
+  left.canvasActiveShellTabId === right.canvasActiveShellTabId &&
+  left.canvasShellPanelCollapsed === right.canvasShellPanelCollapsed &&
   left.canvasTerminalsPanelWidth === right.canvasTerminalsPanelWidth;
 
 type UsePersistedUiStateResult = {
@@ -177,6 +192,12 @@ type UsePersistedUiStateResult = {
   setCanvasOpenTerminalIds: Dispatch<SetStateAction<string[]>>;
   canvasOpenTentacleIds: string[];
   setCanvasOpenTentacleIds: Dispatch<SetStateAction<string[]>>;
+  canvasOpenShellTabIds: string[];
+  setCanvasOpenShellTabIds: Dispatch<SetStateAction<string[]>>;
+  canvasActiveShellTabId: string | null;
+  setCanvasActiveShellTabId: Dispatch<SetStateAction<string | null>>;
+  canvasShellPanelCollapsed: boolean;
+  setCanvasShellPanelCollapsed: Dispatch<SetStateAction<boolean>>;
   canvasTerminalsPanelWidth: number | null;
   setCanvasTerminalsPanelWidth: Dispatch<SetStateAction<number | null>>;
   readUiState: (signal?: AbortSignal) => Promise<FrontendUiStateSnapshot | null>;
@@ -229,6 +250,15 @@ export const usePersistedUiState = ({
   );
   const [canvasOpenTentacleIds, setCanvasOpenTentacleIds] = useState<string[]>(
     DEFAULT_CANVAS_OPEN_TENTACLE_IDS,
+  );
+  const [canvasOpenShellTabIds, setCanvasOpenShellTabIds] = useState<string[]>(
+    DEFAULT_CANVAS_OPEN_SHELL_TAB_IDS,
+  );
+  const [canvasActiveShellTabId, setCanvasActiveShellTabId] = useState<string | null>(
+    DEFAULT_CANVAS_ACTIVE_SHELL_TAB_ID,
+  );
+  const [canvasShellPanelCollapsed, setCanvasShellPanelCollapsed] = useState<boolean>(
+    DEFAULT_CANVAS_SHELL_PANEL_COLLAPSED,
   );
   const [canvasTerminalsPanelWidth, setCanvasTerminalsPanelWidth] = useState<number | null>(null);
   const lastPersistedUiStateRef = useRef<FrontendUiStateSnapshot | null>(null);
@@ -285,6 +315,9 @@ export const usePersistedUiState = ({
           terminalWidths: DEFAULT_TERMINAL_WIDTHS,
           canvasOpenTerminalIds: DEFAULT_CANVAS_OPEN_TERMINAL_IDS,
           canvasOpenTentacleIds: DEFAULT_CANVAS_OPEN_TENTACLE_IDS,
+          canvasOpenShellTabIds: DEFAULT_CANVAS_OPEN_SHELL_TAB_IDS,
+          canvasActiveShellTabId: DEFAULT_CANVAS_ACTIVE_SHELL_TAB_ID,
+          canvasShellPanelCollapsed: DEFAULT_CANVAS_SHELL_PANEL_COLLAPSED,
           canvasTerminalsPanelWidth: null,
         });
         return;
@@ -302,6 +335,14 @@ export const usePersistedUiState = ({
       const nextCanvasOpenTentacleIds = snapshot.canvasOpenTentacleIds
         ? retainActiveTerminalIds(snapshot.canvasOpenTentacleIds, activeTentacleIds)
         : DEFAULT_CANVAS_OPEN_TENTACLE_IDS;
+      const nextCanvasOpenShellTabIds = snapshot.canvasOpenShellTabIds
+        ? retainActiveTerminalIds(snapshot.canvasOpenShellTabIds, activeTerminalIds)
+        : DEFAULT_CANVAS_OPEN_SHELL_TAB_IDS;
+      const nextCanvasActiveShellTabId =
+        snapshot.canvasActiveShellTabId != null &&
+        activeTerminalIds.has(snapshot.canvasActiveShellTabId)
+          ? snapshot.canvasActiveShellTabId
+          : DEFAULT_CANVAS_ACTIVE_SHELL_TAB_ID;
 
       lastPersistedUiStateRef.current = buildPersistedUiStateSnapshot({
         activePrimaryNav:
@@ -332,6 +373,10 @@ export const usePersistedUiState = ({
         terminalWidths: nextTerminalWidths,
         canvasOpenTerminalIds: nextCanvasOpenTerminalIds,
         canvasOpenTentacleIds: nextCanvasOpenTentacleIds,
+        canvasOpenShellTabIds: nextCanvasOpenShellTabIds,
+        canvasActiveShellTabId: nextCanvasActiveShellTabId,
+        canvasShellPanelCollapsed:
+          snapshot.canvasShellPanelCollapsed ?? DEFAULT_CANVAS_SHELL_PANEL_COLLAPSED,
         canvasTerminalsPanelWidth: snapshot.canvasTerminalsPanelWidth ?? null,
       });
 
@@ -403,6 +448,18 @@ export const usePersistedUiState = ({
         setCanvasOpenTentacleIds(nextCanvasOpenTentacleIds);
       }
 
+      if (snapshot.canvasOpenShellTabIds) {
+        setCanvasOpenShellTabIds(nextCanvasOpenShellTabIds);
+      }
+
+      if (snapshot.canvasActiveShellTabId !== undefined) {
+        setCanvasActiveShellTabId(nextCanvasActiveShellTabId);
+      }
+
+      if (snapshot.canvasShellPanelCollapsed !== undefined) {
+        setCanvasShellPanelCollapsed(snapshot.canvasShellPanelCollapsed);
+      }
+
       if (snapshot.canvasTerminalsPanelWidth !== undefined) {
         setCanvasTerminalsPanelWidth(snapshot.canvasTerminalsPanelWidth);
       }
@@ -417,6 +474,12 @@ export const usePersistedUiState = ({
     setTerminalWidths((current) => retainActiveTerminalEntries(current, activeTerminalIds));
     setCanvasOpenTerminalIds((current) => retainActiveTerminalIds(current, activeTerminalIds));
     setCanvasOpenTentacleIds((current) => retainActiveTerminalIds(current, activeTentacleIds));
+    setCanvasOpenShellTabIds((current) => retainActiveTerminalIds(current, activeTerminalIds));
+    setCanvasActiveShellTabId((current) =>
+      current != null && activeTerminalIds.has(current)
+        ? current
+        : DEFAULT_CANVAS_ACTIVE_SHELL_TAB_ID,
+    );
   }, [columns]);
 
   useEffect(() => {
@@ -441,6 +504,9 @@ export const usePersistedUiState = ({
       terminalWidths,
       canvasOpenTerminalIds,
       canvasOpenTentacleIds,
+      canvasOpenShellTabIds,
+      canvasActiveShellTabId,
+      canvasShellPanelCollapsed,
       canvasTerminalsPanelWidth,
     });
 
@@ -475,6 +541,9 @@ export const usePersistedUiState = ({
     activePrimaryNav,
     canvasOpenTerminalIds,
     canvasOpenTentacleIds,
+    canvasOpenShellTabIds,
+    canvasActiveShellTabId,
+    canvasShellPanelCollapsed,
     canvasTerminalsPanelWidth,
     isActiveAgentsSectionExpanded,
     isAgentsSidebarVisible,
@@ -528,6 +597,12 @@ export const usePersistedUiState = ({
     setCanvasOpenTerminalIds,
     canvasOpenTentacleIds,
     setCanvasOpenTentacleIds,
+    canvasOpenShellTabIds,
+    setCanvasOpenShellTabIds,
+    canvasActiveShellTabId,
+    setCanvasActiveShellTabId,
+    canvasShellPanelCollapsed,
+    setCanvasShellPanelCollapsed,
     canvasTerminalsPanelWidth,
     setCanvasTerminalsPanelWidth,
     readUiState,

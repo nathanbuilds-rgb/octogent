@@ -224,6 +224,49 @@ export const parseUiStatePatch = (
     patch.canvasOpenTentacleIds = canvasOpenTentacleIds;
   }
 
+  if (record.canvasOpenShellTabIds !== undefined) {
+    if (!Array.isArray(record.canvasOpenShellTabIds)) {
+      return {
+        patch: null,
+        error: "canvasOpenShellTabIds must be an array of strings.",
+      };
+    }
+
+    const canvasOpenShellTabIds = record.canvasOpenShellTabIds.filter(
+      (id): id is string => typeof id === "string",
+    );
+    if (canvasOpenShellTabIds.length !== record.canvasOpenShellTabIds.length) {
+      return {
+        patch: null,
+        error: "canvasOpenShellTabIds must be an array of strings.",
+      };
+    }
+    patch.canvasOpenShellTabIds = canvasOpenShellTabIds;
+  }
+
+  if (record.canvasActiveShellTabId !== undefined) {
+    if (
+      typeof record.canvasActiveShellTabId !== "string" &&
+      record.canvasActiveShellTabId !== null
+    ) {
+      return {
+        patch: null,
+        error: "canvasActiveShellTabId must be a string or null.",
+      };
+    }
+    patch.canvasActiveShellTabId = record.canvasActiveShellTabId;
+  }
+
+  if (record.canvasShellPanelCollapsed !== undefined) {
+    if (typeof record.canvasShellPanelCollapsed !== "boolean") {
+      return {
+        patch: null,
+        error: "canvasShellPanelCollapsed must be a boolean.",
+      };
+    }
+    patch.canvasShellPanelCollapsed = record.canvasShellPanelCollapsed;
+  }
+
   if (record.canvasTerminalsPanelWidth !== undefined) {
     if (
       typeof record.canvasTerminalsPanelWidth !== "number" ||
