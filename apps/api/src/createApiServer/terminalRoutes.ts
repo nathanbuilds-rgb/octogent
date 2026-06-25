@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { TerminalKind } from "@octogent/core";
 import { readDeckTentacles } from "../deck/readDeckTentacles";
 import { resolvePrompt } from "../prompts";
 import {
@@ -16,6 +17,7 @@ import {
 } from "./routeHelpers";
 import {
   parseTerminalAgentProvider,
+  parseTerminalKind,
   parseTerminalName,
   parseTerminalNameOrigin,
   parseTerminalWorkspaceMode,
@@ -96,6 +98,12 @@ export const handleTerminalsCollectionRoute: ApiRouteHandler = async (
     return true;
   }
 
+  const kindResult = parseTerminalKind(bodyReadResult.payload);
+  if (kindResult.error) {
+    writeJson(response, 400, { error: kindResult.error }, corsOrigin);
+    return true;
+  }
+
   const nameOriginResult = parseTerminalNameOrigin(bodyReadResult.payload);
   if (nameOriginResult.error) {
     writeJson(response, 400, { error: nameOriginResult.error }, corsOrigin);
@@ -110,6 +118,7 @@ export const handleTerminalsCollectionRoute: ApiRouteHandler = async (
       tentacleName?: string;
       workspaceMode: TentacleWorkspaceMode;
       agentProvider?: TerminalAgentProvider;
+      kind?: TerminalKind;
       nameOrigin?: TerminalNameOrigin;
       initialPrompt?: string;
       initialInputDraft?: string;
@@ -123,6 +132,9 @@ export const handleTerminalsCollectionRoute: ApiRouteHandler = async (
     }
     if (agentProviderResult.agentProvider !== undefined) {
       createTerminalInput.agentProvider = agentProviderResult.agentProvider;
+    }
+    if (kindResult.kind !== undefined) {
+      createTerminalInput.kind = kindResult.kind;
     }
     if (nameOriginResult.nameOrigin !== undefined) {
       createTerminalInput.nameOrigin = nameOriginResult.nameOrigin;

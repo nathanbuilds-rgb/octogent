@@ -16,3 +16,11 @@ export const TERMINAL_AGENT_PROVIDERS: TerminalAgentProvider[] = ["codex", "clau
 
 export const isTerminalAgentProvider = (value: unknown): value is TerminalAgentProvider =>
   typeof value === "string" && TERMINAL_AGENT_PROVIDERS.includes(value as TerminalAgentProvider);
+
+export type TerminalKind = "agent" | "shell";
+
+export const isTerminalKind = (value: unknown): value is TerminalKind =>
+  value === "agent" || value === "shell";
+
+/** Reserved tentacle id bucket for workspace-level shell terminals (never a real tentacle). */
+export const SHELL_TENTACLE_ID = "__shell__";

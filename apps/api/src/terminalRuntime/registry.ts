@@ -13,7 +13,7 @@ import type {
   TerminalNameOrigin,
   TerminalRegistryDocument,
 } from "./types";
-import { isTerminalAgentProvider, isTerminalCompletionSoundId } from "./types";
+import { isTerminalAgentProvider, isTerminalCompletionSoundId, isTerminalKind } from "./types";
 
 const REGISTRY_PERSIST_DEBOUNCE_MS = 100;
 
@@ -269,6 +269,7 @@ export const parseV3Terminals = (
     if (isTerminalAgentProvider(entry.agentProvider)) terminal.agentProvider = entry.agentProvider;
     if (typeof entry.conversationId === "string") terminal.conversationId = entry.conversationId;
     if (entry.conversationStarted === true) terminal.conversationStarted = true;
+    if (isTerminalKind(entry.kind)) terminal.kind = entry.kind;
     if (typeof entry.initialPrompt === "string") terminal.initialPrompt = entry.initialPrompt;
     if (typeof entry.initialInputDraft === "string") {
       terminal.initialInputDraft = entry.initialInputDraft;

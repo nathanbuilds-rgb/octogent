@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { DeckTentacleSummary } from "@octogent/core";
+import { SHELL_TENTACLE_ID } from "@octogent/core";
 import { buildConversationsUrl, buildDeckTentaclesUrl } from "../../runtime/runtimeEndpoints";
 import type { GraphEdge, GraphNode } from "../canvas/types";
 import { normalizeConversationSessionSummary } from "../conversationNormalizers";
@@ -241,9 +242,14 @@ export const useCanvasGraphData = ({
   const currentNodesById = new Map<string, GraphNode>();
   const seenTentacleIds = new Set<string>();
 
+  // Shell terminals live in a workspace-level panel, not the graph.
+  const isShellTerminal = (terminal: TerminalView[number]): boolean =>
+    terminal.kind === "shell" || terminal.tentacleId === SHELL_TENTACLE_ID;
+
   // Build a map of active terminals by tentacleId (multiple terminals can share a tentacle)
   const activeTerminalsByTentacle = new Map<string, TerminalView>();
   for (const terminal of columns) {
+    if (isShellTerminal(terminal)) continue;
     const group = activeTerminalsByTentacle.get(terminal.tentacleId);
     if (group) {
       group.push(terminal);
@@ -362,6 +368,7 @@ export const useCanvasGraphData = ({
   // Link active terminals belonging to octoboss
   for (const terminal of columns) {
     if (terminal.tentacleId !== OCTOBOSS_ID) continue;
+    if (isShellTerminal(terminal)) continue;
     const sessionNodeId = buildActiveSessionNodeId(terminal.terminalId);
     const prevSession = prevNodes.get(sessionNodeId);
     const jitter = () => (Math.random() - 0.5) * 60;

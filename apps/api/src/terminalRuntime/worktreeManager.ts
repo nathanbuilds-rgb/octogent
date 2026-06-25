@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { SHELL_TENTACLE_ID } from "@octogent/core";
+
 import { TENTACLE_WORKTREE_BRANCH_PREFIX, TENTACLE_WORKTREE_RELATIVE_PATH } from "./constants";
 import { toErrorMessage } from "./systemClients";
 import type { GitClient, PersistedTerminal } from "./types";
@@ -44,6 +46,7 @@ export const createWorktreeManager = ({
     `${TENTACLE_WORKTREE_BRANCH_PREFIX}${tentacleId}`;
 
   const getTentacleWorkspaceCwd = (worktreeIdentifier: string) => {
+    if (worktreeIdentifier === SHELL_TENTACLE_ID) return workspaceCwd;
     const terminal = findTerminalForWorktree(terminals, worktreeIdentifier);
     if (!terminal) {
       throw new Error(`No terminal found for worktree: ${worktreeIdentifier}`);

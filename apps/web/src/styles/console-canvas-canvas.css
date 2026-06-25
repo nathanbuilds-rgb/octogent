@@ -1,5 +1,13 @@
 /* Canvas tab — force-directed graph view (Obsidian-style) */
 
+.console-shell .canvas-view-shell {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
 .console-shell .canvas-view {
   position: relative;
   min-height: 0;

@@ -39,6 +39,7 @@ import {
   RuntimeInputError,
   type TentacleWorkspaceMode,
   type TerminalAgentProvider,
+  type TerminalKind,
   type TerminalLifecycleState,
   type TerminalNameOrigin,
   type TerminalSession,
@@ -371,6 +372,7 @@ export const createTerminalRuntime = ({
       state: lifecycleStateToAgentState(lifecycleState),
       tentacleId: terminal.tentacleId,
       tentacleName: terminal.tentacleName,
+      ...(terminal.kind ? { kind: terminal.kind } : {}),
       workspaceMode: terminal.workspaceMode,
       createdAt: terminal.createdAt,
       hasUserPrompt: isTerminalRecentlyActive(terminal),
@@ -429,6 +431,7 @@ export const createTerminalRuntime = ({
     tentacleName,
     workspaceMode = "shared",
     agentProvider,
+    kind,
     initialPrompt,
     initialInputDraft,
     baseRef,
@@ -442,6 +445,7 @@ export const createTerminalRuntime = ({
     tentacleName?: string;
     workspaceMode?: TentacleWorkspaceMode;
     agentProvider?: TerminalAgentProvider;
+    kind?: TerminalKind;
     initialPrompt?: string;
     initialInputDraft?: string;
     baseRef?: string;
@@ -494,6 +498,7 @@ export const createTerminalRuntime = ({
       createdAt: new Date().toISOString(),
       workspaceMode,
       agentProvider: agentProvider ?? DEFAULT_AGENT_PROVIDER,
+      ...(kind ? { kind } : {}),
       lifecycleState: "registered",
       lifecycleUpdatedAt: new Date().toISOString(),
       ...(initialPrompt ? { initialPrompt } : {}),
@@ -508,7 +513,7 @@ export const createTerminalRuntime = ({
       worktreeManager.createTentacleWorktree(effectiveWorktreeId, baseRef);
     }
 
-    if (terminal.agentProvider === "claude-code") {
+    if (terminal.agentProvider === "claude-code" && terminal.kind !== "shell") {
       // Claude hooks should only be installed for Claude-backed terminals.
       try {
         const hookTargetCwd = shouldCreateWorktree

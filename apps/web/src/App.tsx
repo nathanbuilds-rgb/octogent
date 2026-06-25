@@ -1,4 +1,9 @@
-import { type TerminalSnapshot, buildTerminalList, isAgentRuntimeState } from "@octogent/core";
+import {
+  SHELL_TENTACLE_ID,
+  type TerminalSnapshot,
+  buildTerminalList,
+  isAgentRuntimeState,
+} from "@octogent/core";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import { useBackendLivenessPolling } from "./app/hooks/useBackendLivenessPolling";
@@ -31,6 +36,7 @@ import { PrimaryViewRouter } from "./components/PrimaryViewRouter";
 import { RuntimeStatusStrip } from "./components/RuntimeStatusStrip";
 import { SidebarActionPanel } from "./components/SidebarActionPanel";
 import { TelemetryTape } from "./components/TelemetryTape";
+import type { ShellTab } from "./components/canvas/ShellTerminalPanel";
 import { HttpTerminalSnapshotReader } from "./runtime/HttpTerminalSnapshotReader";
 import {
   buildTerminalEventsSocketUrl,
@@ -101,6 +107,10 @@ export const App = () => {
     setCanvasOpenTentacleIds,
     canvasTerminalsPanelWidth,
     setCanvasTerminalsPanelWidth,
+    canvasActiveShellTabId,
+    setCanvasActiveShellTabId,
+    canvasShellPanelCollapsed,
+    setCanvasShellPanelCollapsed,
   } = usePersistedUiState({ columns: terminals });
   const {
     workspaceSetup,
@@ -408,6 +418,70 @@ export const App = () => {
     );
   }, []);
 
+  const shellTabs: ShellTab[] = terminals
+    .filter((terminal) => terminal.kind === "shell")
+    .map((terminal) => ({
+      terminalId: terminal.terminalId,
+      label: terminal.tentacleName ?? terminal.terminalId,
+    }));
+
+  const handleCreateShellTab = useCallback(async () => {
+    const terminalId = await createTerminal("shared", undefined, SHELL_TENTACLE_ID, "shell");
+    if (terminalId) {
+      setCanvasActiveShellTabId(terminalId);
+      setCanvasShellPanelCollapsed(false);
+    }
+    await refreshColumns();
+  }, [createTerminal, refreshColumns, setCanvasActiveShellTabId, setCanvasShellPanelCollapsed]);
+
+  const handleCloseShellTab = useCallback(
+    async (terminalId: string) => {
+      // Shell tabs close instantly (VS Code-style) — no confirmation dialog, unlike
+      // agent terminals whose transcript is worth a confirm before discarding.
+      try {
+        const response = await fetch(`/api/terminals/${encodeURIComponent(terminalId)}`, {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          return;
+        }
+        const nextColumns = await refreshColumns();
+        setCanvasActiveShellTabId((current) => {
+          if (current !== terminalId) {
+            return current;
+          }
+          const nextShell = (nextColumns ?? []).find(
+            (terminal) => terminal.kind === "shell" && terminal.terminalId !== terminalId,
+          );
+          return nextShell?.terminalId ?? null;
+        });
+      } catch {
+        // best-effort close
+      }
+    },
+    [refreshColumns, setCanvasActiveShellTabId],
+  );
+
+  const handleRenameShellTab = useCallback(
+    async (terminalId: string, label: string) => {
+      const trimmed = label.trim();
+      if (trimmed.length === 0) {
+        return;
+      }
+      const response = await fetch(`/api/terminals/${encodeURIComponent(terminalId)}`, {
+        method: "PATCH",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!response.ok) {
+        return;
+      }
+      await refreshColumns();
+    },
+    [refreshColumns],
+  );
+
   const handleRunWorkspaceSetupStep = useCallback(
     async (
       stepId:
@@ -647,6 +721,20 @@ export const App = () => {
               onCancelTerminalRename: cancelTerminalRename,
               onRefreshColumns: async () => {
                 await refreshColumns();
+              },
+              shellTabs,
+              activeShellTabId: canvasActiveShellTabId,
+              shellPanelCollapsed: canvasShellPanelCollapsed,
+              onCreateShellTab: () => {
+                void handleCreateShellTab();
+              },
+              onCloseShellTab: handleCloseShellTab,
+              onActivateShellTab: setCanvasActiveShellTabId,
+              onToggleShellPanel: () => {
+                setCanvasShellPanelCollapsed((collapsed) => !collapsed);
+              },
+              onRenameShellTab: (terminalId, label) => {
+                void handleRenameShellTab(terminalId, label);
               },
             }}
             conversationsEnabled={isUiStateHydrated && activePrimaryNav === 6}

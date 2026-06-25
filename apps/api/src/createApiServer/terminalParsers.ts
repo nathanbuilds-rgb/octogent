@@ -1,3 +1,4 @@
+import { type TerminalKind, isTerminalKind } from "@octogent/core";
 import {
   type TentacleWorkspaceMode,
   type TerminalAgentProvider,
@@ -126,6 +127,42 @@ export const parseTerminalAgentProvider = (payload: unknown) => {
 
   return {
     agentProvider: rawAgentProvider,
+    error: null as string | null,
+  };
+};
+
+export const parseTerminalKind = (payload: unknown) => {
+  if (payload === null || payload === undefined) {
+    return {
+      kind: undefined as TerminalKind | undefined,
+      error: null as string | null,
+    };
+  }
+
+  if (typeof payload !== "object") {
+    return {
+      kind: undefined as TerminalKind | undefined,
+      error: "Expected a JSON object body.",
+    };
+  }
+
+  const rawKind = (payload as Record<string, unknown>).kind;
+  if (rawKind === undefined) {
+    return {
+      kind: undefined as TerminalKind | undefined,
+      error: null as string | null,
+    };
+  }
+
+  if (!isTerminalKind(rawKind)) {
+    return {
+      kind: undefined as TerminalKind | undefined,
+      error: "Terminal kind must be either 'agent' or 'shell'.",
+    };
+  }
+
+  return {
+    kind: rawKind,
     error: null as string | null,
   };
 };
